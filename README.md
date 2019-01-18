@@ -1,6 +1,8 @@
 # doom-nano
 A 3d raycast engine for Arduino
 
+![](/screen-1.jpg?raw=true)
+
 Just experimenting with an Arduino Nano I bought some time ago. This chip is very limited in process and memory.
 Probably can be optimized and structured much better. Still learning.
 Will try to keep learning and improve it.
@@ -23,3 +25,8 @@ To do:
 - Make work picking up medikits and keys
 - Doors
 - A game over screen
+
+More screens:
+![](/screen-2.jpg?raw=true)
+
+![](/screen-3.jpg?raw=true)
