@@ -148,21 +148,20 @@ void drawPixel(uint8_t x, uint8_t y, boolean color) {
 
 // Custom draw Vertical lines that fills with a pattern to simulate
 // different brightness. Affected by RES_DIVIDER
-void drawVLine(int8_t x, int8_t start_y, int8_t end_y, uint8_t intensity) {
+void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity) {
   int8_t y = start_y;
   int8_t s = end_y > y ? 1 : -1;
 
   while (y != end_y) {
-    if (y<0 || y>=SCREEN_HEIGHT) {
-      continue;
-    }
-
-    for (uint8_t c=0; c<RES_DIVIDER; c++) {
-      // bypass black pixels
-      if (getGradientPixel(x+c, y, intensity)) {
-        drawPixel(x+c, y, 1);
+    if (y>=0 && y<SCREEN_HEIGHT) {
+      for (uint8_t c=0; c<RES_DIVIDER; c++) {
+        // bypass black pixels
+        if (getGradientPixel(x+c, y, intensity)) {
+          drawPixel(x+c, y, 1);
+        }
       }
     }
+    
     y+=s;
   }
 }

@@ -118,7 +118,7 @@ byte getBlockAt(const uint8_t level[], uint8_t x, uint8_t y) {
 }
 
 // The map raycaster. Based on https://lodev.org/cgtutor/raycasting.html
-void renderMap(const uint8_t level[], player_def *player) {
+void renderMap(const uint8_t level[], player_def *player, double amount_jogging) {
   double camera_x;
   double ray_x; double ray_y;
   byte map_x; byte map_y;
@@ -131,7 +131,8 @@ void renderMap(const uint8_t level[], player_def *player) {
   double distance;
   byte line_height;
   byte col = 0;
-  
+  double jogging = abs(sin((double) millis() / 200)) * 6 * amount_jogging;
+ 
   for (byte x=0; x<SCREEN_WIDTH; x+=RES_DIVIDER, col++) {
     camera_x = 2 * (double) x / SCREEN_WIDTH - 1;
     ray_x = player->dir_x + player->plane_x * camera_x;
@@ -183,21 +184,21 @@ void renderMap(const uint8_t level[], player_def *player) {
     }
     
     if (side == 0) {
-      distance = (map_x - player->x + (1 - step_x) / 2) / ray_x;
+      distance = max(1, (map_x - player->x + (1 - step_x) / 2) / ray_x);
     } else {
-      distance = (map_y - player->y + (1 - step_y) / 2) / ray_y;
+      distance = max(1, (map_y - player->y + (1 - step_y) / 2) / ray_y);
     }
 
     // store zbuffer value for the column
-    //zbuffer[col] = max(0, min(distance * 10, 255));
+    //zbuffer[col] = min(distance * 10, 255);
 
     // rendered line height
-    line_height = SCREEN_HEIGHT / max(1, distance);
+    line_height = SCREEN_HEIGHT / distance;
 
     drawVLine(
       x,
-      - line_height / 2 + SCREEN_HEIGHT / 2, 
-      line_height / 2 + SCREEN_HEIGHT / 2, 
+      jogging / distance - line_height / 2 + SCREEN_HEIGHT / 2, 
+      jogging / distance + line_height / 2 + SCREEN_HEIGHT / 2, 
       gradient_map[int(distance)] - side * 2
     ); 
   }
@@ -279,10 +280,10 @@ void renderEntities(entity_def* entity, player_def* player, uint8_t num_entities
   }
 }
 
-void renderGun(uint8_t gun_pos, double amount_movement) {
+void renderGun(uint8_t gun_pos, double amount_jogging) {
   // jogging
-  char x = 48 + sin((double) millis() / 400) * 10 * amount_movement;
-  char y = 64 - gun_pos + abs(cos((double) millis() / 400)) * 8 * amount_movement;
+  char x = 48 + sin((double) millis() / 400) * 10 * amount_jogging;
+  char y = 64 - gun_pos + abs(cos((double) millis() / 400)) * 8 * amount_jogging;
 
   if (gun_pos > GUN_SHOT_POS - 2) {
     // Gun fire
@@ -399,9 +400,9 @@ void loopGamePlay() {
     }
 
     // Render stuff
-    renderMap(sto_level_1, &player);
+    renderMap(sto_level_1, &player, abs(player.velocity) * MOV_SPEED_INV);
     renderEntities(entity, &player, num_entities);
-    renderGun(gun_pos, player.velocity * MOV_SPEED_INV);
+    renderGun(gun_pos, abs(player.velocity) * MOV_SPEED_INV);
     renderFps();
     
     // Draw the frame
