@@ -28,7 +28,7 @@ void readInput() {
   p_left = digitalRead(K_LEFT) == HIGH;
   p_right = digitalRead(K_RIGHT) == HIGH;
   p_up = digitalRead(K_UP) == HIGH;
-  // p_down = digitalRead(K_DOWN) == HIGH;   // not connected
+  p_down = digitalRead(K_DOWN) == HIGH;
   p_fire = digitalRead(K_FIRE) == HIGH;
 
   // For debugging
