@@ -47,7 +47,7 @@ void setupDisplay() {
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Fixed from 0x3D
     Serial.println(F("SSD1306 allocation failed"));
-    for(;;); // Don't proceed, loop forever
+    while(1); // Don't proceed, loop forever
   }
 
   display.clearDisplay();
@@ -75,14 +75,14 @@ double getActualFps() {
 
 // Helper for melting screen. Picks the relative pixel after melt effect
 // Similar to adafruit::getPixel but removed some checks to make it faster. 
-bool getMeltedPixel(byte frame, byte x, byte y) {
-  byte offset = pgm_read_byte(melt_offsets + x%64) - 48; // get "random:" numbers from 0 - 9
+bool getMeltedPixel(uint8_t frame, uint8_t x, uint8_t y) {
+  uint8_t offset = pgm_read_byte(melt_offsets + x%64) - 48; // get "random:" numbers from 0 - 9
 
   // Return same pixel
   if (frame < offset) 
     return display_buf[x + (y / 8) * SCREEN_WIDTH] & (1 << (y & 7));
 
-  short dy = y - MELT_SPEED;
+  int8_t dy = y - MELT_SPEED;
   
   // Return black
   if (dy < 0) return false; 
@@ -92,9 +92,9 @@ bool getMeltedPixel(byte frame, byte x, byte y) {
 
 // Melt the screen DOOM style
 void meltScreen() {
-  byte frames = 0;
-  short x;
-  short y;
+  uint8_t frames = 0;
+  uint8_t x;
+  int8_t y;
 
   do {  
     fps();
@@ -119,15 +119,13 @@ void meltScreen() {
 
     frames++;
   } while(frames < 30);
-
-  
 }
 
 boolean getGradientPixel(uint8_t x, uint8_t y, uint8_t i) {
   if (i <= 0) return 0;
   if (i >= gradient_count - 1) return 1;
   
-  byte index = max(0, min(gradient_count - 1, i)) * gradient_width * gradient_height// gradient index
+  uint8_t index = max(0, min(gradient_count - 1, i)) * gradient_width * gradient_height// gradient index
     + y * gradient_width % (gradient_width * gradient_height)                       // y byte offset
     + x / gradient_height % gradient_width;                                         // x byte offset
 
@@ -221,13 +219,13 @@ void drawBitmap(int16_t x, int16_t y,
   const uint8_t bitmap[], int16_t w, int16_t h, uint8_t brightness) {
 
   int16_t byteWidth = (w + 7) / 8; // Bitmap scanline pad = whole byte
-  uint8_t byte = 0;
+  uint8_t dot = 0;
 
   for(int16_t j=0; j<h; j++, y++) {
       for(int16_t i=0; i<w; i++) {
-          if(i & 7) byte <<= 1;
-          else      byte   = pgm_read_byte_near(&bitmap[j * byteWidth + i / 8]);
-          if(byte & 0x80) drawPixel(x+i, y, getGradientPixel(j, i, brightness));
+          if(i & 7) dot <<= 1;
+          else      dot   = pgm_read_byte_near(&bitmap[j * byteWidth + i / 8]);
+          if(dot & 0x80) drawPixel(x+i, y, getGradientPixel(j, i, brightness));
       }
   }
 }

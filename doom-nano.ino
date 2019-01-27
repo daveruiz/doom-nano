@@ -106,7 +106,7 @@ uint8_t initializeLevel(const uint8_t level[], player_def *player, entity_def *e
   return num_entities;
 }
 
-byte getBlockAt(const uint8_t level[], uint8_t x, uint8_t y) {
+uint8_t getBlockAt(const uint8_t level[], uint8_t x, uint8_t y) {
   if (x < 0 || x >= LEVEL_WIDTH || y < 0 || y >= LEVEL_HEIGHT) {
     return E_FLOOR;
   }
@@ -121,19 +121,19 @@ byte getBlockAt(const uint8_t level[], uint8_t x, uint8_t y) {
 void renderMap(const uint8_t level[], player_def *player, double amount_jogging) {
   double camera_x;
   double ray_x; double ray_y;
-  byte map_x; byte map_y;
+  uint8_t map_x; uint8_t map_y;
   double side_x; double side_y;
   double delta_x; double delta_y;
   char step_x; char step_y;
   bool hit;
   bool side;
-  byte depth;
+  uint8_t depth;
   double distance;
-  byte line_height;
-  byte col = 0;
+  uint8_t line_height;
+  uint8_t col = 0;
   double jogging = abs(sin((double) millis() / 200)) * 6 * amount_jogging;
  
-  for (byte x=0; x<SCREEN_WIDTH; x+=RES_DIVIDER, col++) {
+  for (uint8_t x=0; x<SCREEN_WIDTH; x+=RES_DIVIDER, col++) {
     camera_x = 2 * (double) x / SCREEN_WIDTH - 1;
     ray_x = player->dir_x + player->plane_x * camera_x;
     ray_y = player->dir_y + player->plane_y * camera_x;
@@ -326,8 +326,8 @@ void loopIntro() {
 }
 
 void loopGamePlay() {
-  byte gun_fired = false;
-  byte gun_pos = 0;
+  bool gun_fired = false;
+  uint8_t gun_pos = 0;
 
   // player and entities
   player_def player;
