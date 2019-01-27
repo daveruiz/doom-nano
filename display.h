@@ -35,7 +35,6 @@ double lastFrameTime = 0;
 // For optimizations
 const static char PROGMEM melt_offsets[] = "1234543234323454343456754321234321234543456543212345432123432123432345676";
 const static uint8_t PROGMEM bit_mask[8] = { B10000000, B01000000, B00100000, B00010000, B00001000, B00000100, B00000010, B00000001 };
-uint8_t gradient_map[MAX_RENDER_DEPTH];
 
 uint8_t *display_buf;
 // We don't handle more than MAX_RENDER_DEPTH depth, so we can safety store
@@ -55,10 +54,6 @@ void setupDisplay() {
 
   // initialize z buffer
   // for (uint8_t i=0; i<SCREEN_WIDTH/RES_DIVIDER; i++) zbuffer[i] = 255;
-
-  // precalculate gradient map based on distance
-  for (uint8_t i=0; i<MAX_RENDER_DEPTH; i++) 
-    gradient_map[i] = gradient_count - int((double)i / MAX_RENDER_DEPTH * gradient_count);
 }
 
 // Adds a delay to limit play to specified fps
@@ -176,7 +171,8 @@ void drawSprite(
   uint8_t th = (double) h / distance;
   uint8_t byte_width = w / 8;
   uint16_t sprite_offset = byte_width * h * sprite;
-  uint8_t intensity = gradient_map[int(distance)];
+  uint8_t intensity = gradient_count - int(distance / MAX_RENDER_DEPTH * gradient_count);
+  
   bool pixel;
   bool maskPixel;
 

@@ -199,7 +199,7 @@ void renderMap(const uint8_t level[], player_def *player, double amount_jogging)
       x,
       jogging / distance - line_height / 2 + SCREEN_HEIGHT / 2, 
       jogging / distance + line_height / 2 + SCREEN_HEIGHT / 2, 
-      gradient_map[int(distance)] - side * 2
+      gradient_count - int(distance / MAX_RENDER_DEPTH * gradient_count)
     ); 
   }
 }
