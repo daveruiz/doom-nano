@@ -130,10 +130,9 @@ void renderMap(const uint8_t level[], player_def *player, double amount_jogging)
   uint8_t depth;
   double distance;
   uint8_t line_height;
-  uint8_t col = 0;
   double jogging = abs(sin((double) millis() / 200)) * 6 * amount_jogging;
  
-  for (uint8_t x=0; x<SCREEN_WIDTH; x+=RES_DIVIDER, col++) {
+  for (uint8_t x=0; x<SCREEN_WIDTH; x+=RES_DIVIDER) {
     camera_x = 2 * (double) x / SCREEN_WIDTH - 1;
     ray_x = player->dir_x + player->plane_x * camera_x;
     ray_y = player->dir_y + player->plane_y * camera_x;
@@ -179,28 +178,26 @@ void renderMap(const uint8_t level[], player_def *player, double amount_jogging)
       depth++;
     }
 
-    if (!hit) {
-      continue;
+    if (hit) {
+      if (side == 0) {
+        distance = max(1, (map_x - player->x + (1 - step_x) / 2) / ray_x);
+      } else {
+        distance = max(1, (map_y - player->y + (1 - step_y) / 2) / ray_y);
+      }
+  
+      // store zbuffer value for the column
+      zbuffer[int((double) x / Z_RES_DIVIDER)] = min(distance * 10, 255);
+  
+      // rendered line height
+      line_height = SCREEN_HEIGHT / distance;
+  
+      drawVLine(
+        x,
+        jogging / distance - line_height / 2 + SCREEN_HEIGHT / 2, 
+        jogging / distance + line_height / 2 + SCREEN_HEIGHT / 2, 
+        gradient_count - int(distance / MAX_RENDER_DEPTH * gradient_count) - side * 2
+      );
     }
-    
-    if (side == 0) {
-      distance = max(1, (map_x - player->x + (1 - step_x) / 2) / ray_x);
-    } else {
-      distance = max(1, (map_y - player->y + (1 - step_y) / 2) / ray_y);
-    }
-
-    // store zbuffer value for the column
-    //zbuffer[col] = min(distance * 10, 255);
-
-    // rendered line height
-    line_height = SCREEN_HEIGHT / distance;
-
-    drawVLine(
-      x,
-      jogging / distance - line_height / 2 + SCREEN_HEIGHT / 2, 
-      jogging / distance + line_height / 2 + SCREEN_HEIGHT / 2, 
-      gradient_count - int(distance / MAX_RENDER_DEPTH * gradient_count)
-    ); 
   }
 }
 
@@ -212,7 +209,7 @@ void renderEntities(entity_def* entity, player_def* player, uint8_t num_entities
   }
   */
 
-  // todo: sorting from far to closeS
+  // todo: sort sprites from far to close
   
   for (int i=0; i<num_entities; i++) {
     if (entity[i].state == S_HIDDEN) continue;
@@ -233,6 +230,7 @@ void renderEntities(entity_def* entity, player_def* player, uint8_t num_entities
 
     int sprite_screen_x = int((SCREEN_WIDTH / 2) * (1 + transform_x / transform_y));
 
+    // don't draw if it's outside of screen
     if (sprite_screen_x < 0 || sprite_screen_x > SCREEN_WIDTH) {
       continue;
     }

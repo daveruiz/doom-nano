@@ -11,6 +11,7 @@
 #define FRAME_TIME          66.666666   // Desired time per frame in ms (66.666666 is ~15 fps)
 #define RES_DIVIDER         2           // Hgher values will result in lower horizontal resolution when raasterize and lower process and memory usage
                                         // Lower will require more process and memory, but looks nicer
+#define Z_RES_DIVIDER       8           // Zbuffer resolution divider. We sacrifice resolution to save memory
 #define MAX_RENDER_DEPTH    12
 #define MAX_SPRITE_DEPTH    8
 #define MELT_SPEED          6
@@ -39,7 +40,7 @@ const static uint8_t PROGMEM bit_mask[8] = { B10000000, B01000000, B00100000, B0
 uint8_t *display_buf;
 // We don't handle more than MAX_RENDER_DEPTH depth, so we can safety store
 // z values in a byte with 1 decimal and save some memory,
-// uint8_t zbuffer[SCREEN_WIDTH/RES_DIVIDER];
+uint8_t zbuffer[SCREEN_WIDTH/Z_RES_DIVIDER];
 
 void setupDisplay() {
   // Setup display
@@ -53,7 +54,7 @@ void setupDisplay() {
   display_buf = display.getBuffer();
 
   // initialize z buffer
-  // for (uint8_t i=0; i<SCREEN_WIDTH/RES_DIVIDER; i++) zbuffer[i] = 255;
+  for (uint8_t i=0; i<SCREEN_WIDTH/Z_RES_DIVIDER; i++) zbuffer[i] = 255;
 }
 
 // Adds a delay to limit play to specified fps
@@ -176,7 +177,14 @@ void drawSprite(
   bool pixel;
   bool maskPixel;
 
+  // Don't draw if the sprite is hidden by z buffer
+  // Not checked per pixer for performance reasons
+  if (zbuffer[int((double) x / Z_RES_DIVIDER)] < distance*10) {
+    return;
+  }
+
   for (uint8_t ty=0; ty<th; ty++) {
+    // Don't draw out of screen
     if (y + ty < 0 || y + ty >= SCREEN_HEIGHT) {
       continue;
     }
@@ -187,15 +195,10 @@ void drawSprite(
       uint8_t sx = tx * distance; // The x from the sprite
       uint8_t byte_offset = sprite_offset + sy * byte_width + sx / 8;
 
-      // don't draw if out of screen 
+      // Don't draw out of screen
       if (x + tx < 0 || x + tx >= SCREEN_WIDTH) {
         continue;
       }
-
-      // don't draw if the pixel is hidden by z buffer
-      // if (zbuffer[int(tx)] < distance*10) {
-      // continue;
-      // }
 
       pixel = pgm_read_byte(bitmap + byte_offset) & pgm_read_byte(bit_mask + sx % 8) ? 1 : 0;
       maskPixel = pgm_read_byte(mask + byte_offset) & pgm_read_byte(bit_mask + sx % 8) ? 1 : 0;
