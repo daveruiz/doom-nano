@@ -42,7 +42,6 @@ uint8_t *display_buf;
 // z values in a byte with 1 decimal and save some memory,
 // uint8_t zbuffer[SCREEN_WIDTH/RES_DIVIDER];
 
-
 void setupDisplay() {
   // Setup display
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
@@ -103,7 +102,7 @@ void meltScreen() {
     // The screen distribution is 8 rows of 128x8 pixels
     for (y = SCREEN_HEIGHT - 8; y >= 0; y-=8) {
       for (x = 0; x < SCREEN_WIDTH;  x++) {
-        // write directly to buffer the full byte
+        // To speed up the animation, it writes directly to buffer the full byte
         display_buf[(y/8)*SCREEN_WIDTH + x] = 
             (getMeltedPixel(frames, x, y+7) << 7)
           | (getMeltedPixel(frames, x, y+6) << 6)

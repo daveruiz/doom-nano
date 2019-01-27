@@ -13,6 +13,7 @@
 #define GUN_SHOT_POS      30
 #define ROT_SPEED         0.12
 #define MOV_SPEED         .2
+#define MOV_SPEED_INV     5     // 1 / MOV_SPEED
 #define MAX_ENTITIES      23
 
 #define S_STAND           0
@@ -33,6 +34,7 @@ struct player_def {
   double dir_y;
   double plane_x;
   double plane_y;
+  double velocity;
   uint8_t health;
   uint8_t keys;
 };
@@ -71,7 +73,7 @@ uint8_t initializeLevel(const uint8_t level[], player_def *player, entity_def *e
 
       switch(b) {          
         case E_PLAYER: 
-          *player = { (double) x + .5, (double) y + .5, 1, 0, 0, -0.66, 100 };
+          *player = { (double) x + .5, (double) y + .5, 1, 0, 0, -0.66, 0, 100, 0 };
           break;
           
         case E_ENEMY: 
@@ -213,13 +215,10 @@ void renderEntities(entity_def* entity, player_def* player, uint8_t num_entities
   
   for (int i=0; i<num_entities; i++) {
     if (entity[i].state == S_HIDDEN) continue;
-
-    double ent_x = entity[i].x;
-    double ent_y = entity[i].y;
     
     //translate sprite position to relative to camera
-    double sprite_x = ent_x - player->x;
-    double sprite_y = ent_y - player->y;
+    double sprite_x = entity[i].x - player->x;
+    double sprite_y = entity[i].y - player->y;
     
     //required for correct matrix multiplication
     double inv_det = 1.0 / (player->plane_x * player->dir_y - player->dir_x * player->plane_y); 
@@ -280,14 +279,19 @@ void renderEntities(entity_def* entity, player_def* player, uint8_t num_entities
   }
 }
 
-void renderGun(uint8_t gun_pos) {
+void renderGun(uint8_t gun_pos, double amount_movement) {
+  // jogging
+  char x = 48 + sin((double) millis() / 400) * 10 * amount_movement;
+  char y = 64 - gun_pos + abs(cos((double) millis() / 400)) * 8 * amount_movement;
+
   if (gun_pos > GUN_SHOT_POS - 2) {
     // Gun fire
-    display.drawBitmap(54, 25, bmp_fire_bits, bmp_fire_width, bmp_fire_height, 1);
+    display.drawBitmap(x + 6, y - 11, bmp_fire_bits, bmp_fire_width, bmp_fire_height, 1);
   }
+  
   // Draw the gun (black mask + actual sprite).
-  display.drawBitmap(48, 64 - gun_pos, bmp_gun_mask, bmp_gun_width, bmp_gun_height, 0);
-  display.drawBitmap(48, 64 - gun_pos, bmp_gun_bits, bmp_gun_width, bmp_gun_height, 1);
+  display.drawBitmap(x, y, bmp_gun_mask, bmp_gun_width, bmp_gun_height, 0);
+  display.drawBitmap(x, y, bmp_gun_bits, bmp_gun_width, bmp_gun_height, 1);
 }
 
 void renderFps() {
@@ -338,19 +342,22 @@ void loopGamePlay() {
     display.clearDisplay();
 
     // Player movement
-
+    
     if (p_up) {
-      if (getBlockAt(sto_level_1, player.x + player.dir_x * MOV_SPEED * 2, player.y) != E_WALL) 
-        player.x += player.dir_x * MOV_SPEED * delta;
-      if (getBlockAt(sto_level_1, player.x, player.y + player.dir_y * MOV_SPEED * 2) != E_WALL) 
-        player.y += player.dir_y * MOV_SPEED * delta;
+      player.velocity += (MOV_SPEED - player.velocity) * .4; ;
+    } else if (p_down) {
+      player.velocity += (- MOV_SPEED - player.velocity) * .4;
+    } else {
+      player.velocity *= .5;
     }
 
-    if (p_down) {
-      if (getBlockAt(sto_level_1, player.x - player.dir_x * MOV_SPEED * 2, player.y) != E_WALL) 
-        player.x -= player.dir_x * MOV_SPEED * delta;
-      if (getBlockAt(sto_level_1, player.x, player.y - player.dir_y * MOV_SPEED * 2) != E_WALL) 
-        player.y -= player.dir_y * MOV_SPEED * delta;
+    if (abs(player.velocity) > 0.003) {
+      if (getBlockAt(sto_level_1, player.x + player.dir_x * player.velocity * 2, player.y) != E_WALL) 
+        player.x += player.dir_x * player.velocity * delta;
+      if (getBlockAt(sto_level_1, player.x, player.y + player.dir_y * player.velocity * 2) != E_WALL) 
+        player.y += player.dir_y * player.velocity * delta;
+    } else {
+      player.velocity = 0;
     }
 
     // Player rotation 
@@ -394,7 +401,7 @@ void loopGamePlay() {
     // Render stuff
     renderMap(sto_level_1, &player);
     renderEntities(entity, &player, num_entities);
-    renderGun(gun_pos);
+    renderGun(gun_pos, player.velocity * MOV_SPEED_INV);
     renderFps();
     
     // Draw the frame
