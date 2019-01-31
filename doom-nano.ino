@@ -303,7 +303,14 @@ void renderFps() {
 void loopIntro() {
   // fade in effect
   for (uint8_t i=0; i<8; i++) {
-    drawBitmap(0, 0, bmp_logo_bits, bmp_logo_width, bmp_logo_height, i);
+    drawBitmap(
+      (SCREEN_WIDTH - bmp_logo_width) / 2,
+      (SCREEN_HEIGHT - bmp_logo_height) / 2,
+      bmp_logo_bits,
+      bmp_logo_width,
+      bmp_logo_height,
+      i
+    );
     display.display();
     delay(100);
   }
