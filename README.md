@@ -24,13 +24,12 @@ Resources:
 - Much thanks to https://lodev.org/cgtutor for so wonderful resource about raycasting engines
 
 To do:
-- Make zbuffer work (half-implemented, but having memory issues)
 - Build some basic IA for enemies
 - Make possible kill enemies
 - Make work picking up medikits and keys
 - Doors and locked doors
 - A game over screen
-- Textures? Very performsnce expensive. I don't think so.
+- Textures? Very performance expensive. I don't think so.
 - Music? 
 
 More screens:
