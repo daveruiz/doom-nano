@@ -4,32 +4,27 @@
 #include "input.h"
 
 // scenes
-#define INTRO             0
-#define GAME_PLAY         1
-#define GAME_OVER         2
+#define INTRO                 0
+#define GAME_PLAY             1
+#define GAME_OVER             2
 
 // game
-#define GUN_TARGET_POS    26
-#define GUN_SHOT_POS      30
-#define ROT_SPEED         .12
-#define MOV_SPEED         .2
-#define MOV_SPEED_INV     5     // 1 / MOV_SPEED
-#define JOGGING_SPEED     .005
-#define MAX_ENTITIES      8
-#define MAX_SLEEPING_ENTITIES   32
+#define GUN_TARGET_POS        26
+#define GUN_SHOT_POS          30
+#define ROT_SPEED             .12
+#define MOV_SPEED             .2
+#define MOV_SPEED_INV         5     // 1 / MOV_SPEED
+#define JOGGING_SPEED         .005
+
+#define MAX_ENTITIES          8
+#define MAX_DOZED_ENTITIES    32
+#define MAX_ENTITY_DISTANCE   8
 
 // entity status
-#define S_STAND           0
-#define S_ALERT           1
-#define S_FIRING          2
-#define S_HIDDEN          3
-
-// entity type
-#define T_NULL            0
-#define T_ENEMY           1
-#define T_KEY             2
-#define T_MEDIKIT         3
-#define T_FURNITURE       4
+#define S_STAND               0
+#define S_ALERT               1
+#define S_FIRING              2
+#define S_HIDDEN              3
 
 struct player_def {
   double x;
@@ -50,11 +45,13 @@ struct entity_def {
   double y;
   uint8_t state;
   uint8_t health;
-  uint8_t distance;
+  uint16_t distance;
 };
 
-// Sleeping entities. Only stores if it´s dead or alive
-struct entity_sleep_def {
+// Static entities
+struct dozed_entity_def {
+  uint8_t x;
+  uint8_t y;
   uint16_t uid;
   bool active;
 };
@@ -67,9 +64,10 @@ bool exit_scene = false;
 // player and entities
 player_def player;
 entity_def entity[MAX_ENTITIES];
+dozed_entity_def dozed_entity[MAX_DOZED_ENTITIES];
 uint8_t num_entities = 0;
-entity_def sleep_entity[MAX_SLEEPING_ENTITIES];
-uint8_t num_sleep_entities = 0;
+uint8_t num_dozed_entities = 0;
+uint8_t num_static_entities = 0;
 
 void setup(void) {
   Serial.begin(9600);
@@ -87,12 +85,11 @@ void initializeLevel(const uint8_t level[]) {
   // Find the player
   for (int y = LEVEL_HEIGHT-1; y >= 0; y--) {
     for (int x = 0; x < LEVEL_WIDTH; x++) {
-      uint8_t b = getBlockAt(level, x, y);
+      uint8_t block = getBlockAt(level, x, y);
 
-      switch(b) {          
-        case E_PLAYER: 
-          player = { (double) x + .5, (double) y + .5, 1, 0, 0, -0.66, 0, 100, 0 };
-          break;
+      if (block == E_PLAYER) {
+        player = { (double) x + .5, (double) y + .5, 1, 0, 0, -0.66, 0, 100, 0 };
+        return;
       }
     }
   }
@@ -101,10 +98,10 @@ void initializeLevel(const uint8_t level[]) {
 // Generates a unique ID for each entity based in it´s position and type
 // block types has 4 bits, so 16 possible combinations
 uint16_t getEntityUID(uint8_t block_type, uint8_t x, uint8_t y) {
-  return (y * LEVEL_WIDTH + x) * 16 + block_type & 0b00001111;
+  return (y * LEVEL_WIDTH + x) * 16 + (block_type & 0b00001111);
 }
 
-// Get the type from the UID. So we don´t need to read the map again
+// Calculate the type from the UID. So we don´t need to read the map again
 uint8_t getTypeFromUID(uint16_t uid) {
   return uid % 16;
 }
@@ -120,15 +117,13 @@ uint8_t getBlockAt(const uint8_t level[], uint8_t x, uint8_t y) {
     & 0b1111;               // mask wanted bits
 }
 
-void spawnEntity(uint16_t uid) {
+void spawnEntity(uint16_t uid, uint8_t x, uint8_t y) {
   // Limit the number of spawned entities
   if (num_entities >= MAX_ENTITIES) {
     return;
   }
   
   uint8_t type = getTypeFromUID(uid);
-  uint8_t x = (uid / 16) % LEVEL_WIDTH;
-  uint8_t y = (uid / 16) / LEVEL_WIDTH;
 
   // todo: read sleeping status
 
@@ -154,25 +149,89 @@ void spawnEntity(uint16_t uid) {
       }
       break;     
   }
+
+  Serial.print(F("Spawned ID "));
+  Serial.print(uid);
+  Serial.print(F(" "));
+  Serial.print(type, BIN);
+  Serial.print(F(" "));
+  Serial.print(x);
+  Serial.print(F(" "));
+  Serial.print(y);
+  Serial.print(F(" (count "));
+  Serial.print(num_entities);
+  Serial.print(F(")"));
+  Serial.println();
+}
+
+// We skip sqrt. So distances checked must be squared
+uint16_t getSquaredDistanceToPlayer(uint8_t x, uint8_t y) {
+  return (player.x - x) * (player.x - x) 
+    + (player.y - y) * (player.y - y); 
+}
+
+void removeEntity(uint16_t uid) {
+  uint8_t i = 0;
+  bool found = false;
+
+  while(i<num_entities) {
+    if (!found && entity[i].uid == uid) {
+      // todo: doze it      
+      found = true;
+      num_entities--;
+
+      Serial.print(F("Removed ID "));
+      Serial.print(uid);
+      Serial.print(F(" "));
+      Serial.print(getTypeFromUID(uid), BIN);
+      Serial.print(F(" (count "));
+      Serial.print(num_entities);
+      Serial.print(F(")"));
+      Serial.println();
+    }
+
+    // displace entities
+    if (found) {
+      entity[i] = entity[i+1];
+    }
+    
+    i++;
+  }
 }
 
 bool isSpawned(uint16_t uid) {
-  // todo
+  for (uint8_t i=0; i<num_entities; i++) {
+    if (entity[i].uid == uid) return true;
+  }
+  
+  return false;
 }
 
-void sleepEntity(uint16_t uid) {
-  // todo
+bool isDozed(uint16_t uid) {
+  for (uint8_t i=0; i<num_dozed_entities; i++) {
+    if (dozed_entity[i].uid == uid) return true;
+  }
+  
+  return false;
 }
 
 void updateEntities() {  
-  for (uint8_t i=0; i<num_entities; i++) {
+  uint8_t i = 0;
+  while(i<num_entities) {
     if (entity[i].state == S_HIDDEN) {
+      i++;
       continue;
     }
 
-    // update distance (skip sqrt. we will need to compare with distance^2)
-    entity[i].distance = (player.x - entity[i].x) * (player.x - entity[i].x) 
-      + (player.y - entity[i].y) * (player.y - entity[i].y); 
+    // update distance
+    entity[i].distance = getSquaredDistanceToPlayer(entity[i].x, entity[i].y);
+
+    // too far away. put it in doze mode
+    if (entity[i].distance > MAX_ENTITY_DISTANCE * MAX_ENTITY_DISTANCE) {
+      removeEntity(entity[i].uid);
+      // don't increase 'i', since current one has been removed
+      continue;
+    }  
 
     uint8_t type = getTypeFromUID(entity[i].uid);
    
@@ -202,6 +261,8 @@ void updateEntities() {
         break; 
       }
     }
+
+    i++;
   }
 }
 
@@ -219,13 +280,15 @@ void renderMap(const uint8_t level[], double amount_jogging) {
   double distance;
   uint8_t line_height;
   double jogging = abs(sin((double) millis() * JOGGING_SPEED)) * 6 * amount_jogging;
+  uint8_t block;
+  uint16_t uid;
  
   for (uint8_t x=0; x<SCREEN_WIDTH; x+=RES_DIVIDER) {
     camera_x = 2 * (double) x / SCREEN_WIDTH - 1;
     ray_x = player.dir_x + player.plane_x * camera_x;
     ray_y = player.dir_y + player.plane_y * camera_x;
-    map_x = byte(player.x);
-    map_y = byte(player.y);
+    map_x = uint8_t(player.x);
+    map_y = uint8_t(player.y);
     delta_x = abs(1 / ray_x);
     delta_y = abs(1 / ray_y);
 
@@ -245,7 +308,7 @@ void renderMap(const uint8_t level[], double amount_jogging) {
       side_y = (map_y + 1.0 - player.y) * delta_y;
     }
 
-    // Detection
+    // Wall detection
     depth = 0;
     hit = 0;
     while(!hit && depth < MAX_RENDER_DEPTH) {
@@ -259,8 +322,23 @@ void renderMap(const uint8_t level[], double amount_jogging) {
         side = 1;
       }
 
-      if (getBlockAt(level, map_x, map_y) == E_WALL) {
+      block = getBlockAt(level, map_x, map_y);
+
+      if (block == E_WALL) {
           hit = 1;
+      } else {
+        // Spawning entities here, as soon they are visible for the
+        // player. Not the best place, but would be a very performance
+        // cost scan for them in another loop
+        if (block == E_ENEMY || block & 0b00001000) {
+          // Check that it's close to the player
+          if (getSquaredDistanceToPlayer(map_x, map_y) < MAX_ENTITY_DISTANCE * MAX_ENTITY_DISTANCE) {
+            uid = getEntityUID(block, map_x, map_y);
+            if (!isSpawned(uid)) {
+              spawnEntity(uid, map_x, map_y);
+            } 
+          }
+        }
       }
 
       depth++;
@@ -305,11 +383,12 @@ void renderEntities() {
     double transform_x = inv_det * (player.dir_y * sprite_x - player.dir_x * sprite_y);
     double transform_y = inv_det * (-player.plane_y * sprite_x + player.plane_x * sprite_y); // Z in screen
 
+    // behind the player or too far away
     if (transform_y <= 0 || transform_y > MAX_SPRITE_DEPTH) {
       continue;
     }
 
-    int8_t sprite_screen_x = int((SCREEN_WIDTH / 2) * (1 + transform_x / transform_y));
+    int8_t sprite_screen_x = (SCREEN_WIDTH / 2) * (1 + transform_x / transform_y);
 
     // don't draw if it's outside of screen
     if (sprite_screen_x < 0 || sprite_screen_x > SCREEN_WIDTH) {
@@ -318,8 +397,23 @@ void renderEntities() {
 
     uint8_t type = getTypeFromUID(entity[i].uid);
 
+    /*
+    Serial.print(F("Render ID "));
+    Serial.print(entity[i].uid);
+    Serial.print(F(" "));
+    Serial.print(type, BIN);
+    Serial.print(F(" "));
+    Serial.print(entity[i].x);
+    Serial.print(F(" "));
+    Serial.print(entity[i].y);
+    Serial.print(F(" ("));
+    Serial.print(i);
+    Serial.print(F(")"));
+    Serial.println();
+    */
+
     switch(type) {
-      case T_ENEMY:
+      case E_ENEMY:
         drawSprite(
           sprite_screen_x - bmp_imp_width * .5 / transform_y, 
           SCREEN_HEIGHT / 2 - 12 / transform_y, 
@@ -332,7 +426,7 @@ void renderEntities() {
         );
         break;
 
-      case T_MEDIKIT:
+      case E_MEDIKIT:
         drawSprite(
           sprite_screen_x - bmp_imp_width * .5 / transform_y, 
           SCREEN_HEIGHT / 2 + 5 / transform_y, 
@@ -345,7 +439,7 @@ void renderEntities() {
         );
         break;
 
-      case T_KEY:
+      case E_KEY:
         drawSprite(
           sprite_screen_x - bmp_imp_width * .5 / transform_y, 
           SCREEN_HEIGHT / 2 + 5 / transform_y, 
