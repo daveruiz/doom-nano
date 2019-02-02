@@ -14,7 +14,7 @@
 #define ROT_SPEED         0.12
 #define MOV_SPEED         .2
 #define MOV_SPEED_INV     5     // 1 / MOV_SPEED
-#define MAX_ENTITIES      23
+#define MAX_ENTITIES      8
 
 #define S_STAND           0
 #define S_ALERT           1
@@ -39,12 +39,20 @@ struct player_def {
   uint8_t keys;
 };
 
+// Spawned entities
 struct entity_def {
-  uint8_t type;
+  uint16_t uid;
   double x;
   double y;
   uint8_t state;
   uint8_t health;
+  uint8_t distance;
+};
+
+// Sleeping entities. Only stores if it´s dead or alive
+struct entity_sleep_def {
+  uint16_t uid;
+  bool active;
 };
 
 // general
@@ -63,10 +71,8 @@ void jumpTo(uint8_t target_scene) {
   exit_scene = true;
 }
 
-uint8_t initializeLevel(const uint8_t level[], player_def *player, entity_def *entity) {
-  uint8_t num_entities = 0;
-  
-  // Find the player and entities
+void initializeLevel(const uint8_t level[], player_def *player, entity_def *entity) {
+  // Find the player
   for (int y = LEVEL_HEIGHT-1; y >= 0; y--) {
     for (int x = 0; x < LEVEL_WIDTH; x++) {
       uint8_t b = getBlockAt(level, x, y);
@@ -75,35 +81,20 @@ uint8_t initializeLevel(const uint8_t level[], player_def *player, entity_def *e
         case E_PLAYER: 
           *player = { (double) x + .5, (double) y + .5, 1, 0, 0, -0.66, 0, 100, 0 };
           break;
-          
-        case E_ENEMY: 
-          if (num_entities < MAX_ENTITIES) {
-            entity[num_entities] = { T_ENEMY, (double) x + .5, (double) y + .5, S_STAND, 20 };
-            num_entities++;
-          }
-          break;
-
-        case E_KEY: 
-          if (num_entities < MAX_ENTITIES) {
-            entity[num_entities] = { T_KEY, (double) x + .5, (double) y + .5, S_STAND, 0 };
-            num_entities++;
-          }
-          break;
-
-        case E_MEDIKIT:
-          if (num_entities < MAX_ENTITIES) {
-            entity[num_entities] = { T_MEDIKIT, (double) x + .5, (double) y + .5, S_STAND, 0 };
-            num_entities++;
-          }
-          break;     
       }
     }
   }
+}
 
-  Serial.print(F("Total entities: "));
-  Serial.println(num_entities);
+// Generates a unique ID for each entity based in it´s position and type
+// block types has 4 bits, so 16 possible combinations
+uint16_t getEntityUID(uint8_t block_type, uint8_t x, uint8_t y) {
+  return (y * LEVEL_WIDTH + x) * 16 + block_type & 0b00001111;
+}
 
-  return num_entities;
+// Get the type from the UID. So we don´t need to read the map again
+uint8_t getTypeFromUID(uint16_t uid) {
+  return uid % 16;
 }
 
 uint8_t getBlockAt(const uint8_t level[], uint8_t x, uint8_t y) {
@@ -115,6 +106,99 @@ uint8_t getBlockAt(const uint8_t level[], uint8_t x, uint8_t y) {
   return pgm_read_byte(level + (((LEVEL_HEIGHT - 1 - y) * LEVEL_WIDTH + x) / 2))
     >> (!(x%2) * 4)         // displace part of wanted bits
     & 0b1111;               // mask wanted bits
+}
+
+void spawnEntity(
+  entity_def *entity, 
+  uint8_t *num_entities,
+  entity_sleep_def sleeping_entity,
+  uint8_t *num_sleeping_entities,
+  uint16_t uid
+) {
+  // Limit the number of spawned entities
+  if (num_entities >= MAX_ENTITIES) {
+    return;
+  }
+  
+  uint8_t type = getTypeFromUID(uid);
+  uint8_t x = (uid / 16) % LEVEL_WIDTH;
+  uint8_t y = (uid / 16) / LEVEL_WIDTH;
+
+  // todo: read sleeping status
+
+  switch (type) {
+    case E_ENEMY: 
+      if (num_entities < MAX_ENTITIES) {
+        entity[*num_entities] = { uid, (double) x + .5, (double) y + .5, S_STAND, 20 };
+        *num_entities++;
+      }
+      break;
+
+    case E_KEY: 
+      if (num_entities < MAX_ENTITIES) {
+        entity[*num_entities] = { uid, (double) x + .5, (double) y + .5, S_STAND, 0 };
+        *num_entities++;
+      }
+      break;
+
+    case E_MEDIKIT:
+      if (num_entities < MAX_ENTITIES) {
+        entity[*num_entities] = { uid, (double) x + .5, (double) y + .5, S_STAND, 0 };
+        *num_entities++;
+      }
+      break;     
+  }
+}
+
+void sleepEntity(
+  entity_def *entity, 
+  uint8_t *num_entities,
+  entity_sleep_def sleeping_entity,
+  uint8_t *num_sleeping_entities,
+  uint16_t uid
+) {
+  // todo
+}
+
+void updateEntities(entity_def* entity, player_def* player, uint8_t num_entities) {  
+  for (uint8_t i=0; i<num_entities; i++) {
+    if (entity[i].state == S_HIDDEN) {
+      continue;
+    }
+
+    // update distance (skip sqrt. we will need to compare with distance^2)
+    entity[i].distance = (player->x - entity[i].x) * (player->x - entity[i].x) 
+      + (player->y - entity[i].y) * (player->y - entity[i].y); 
+
+    uint8_t type = getTypeFromUID(entity[i].uid);
+   
+    switch (type) {
+      case E_ENEMY: {
+        if (entity[i].distance < 16) {
+          // move towards to the player. todo
+        }
+        break;
+      }
+
+      case E_MEDIKIT: {
+        if (entity[i].distance < 1) {
+          // pickup
+          entity[i].state = S_HIDDEN;
+          player->health = min(100, player->health + 50);
+        }
+        break; 
+      }
+
+      case E_KEY: {
+        if (entity[i].distance < 1) {
+          // pickup
+          entity[i].state = S_HIDDEN;
+          player->keys++;
+        }
+        break; 
+      }
+    }
+  }
 }
 
 // The map raycaster. Based on https://lodev.org/cgtutor/raycasting.html
@@ -202,16 +286,9 @@ void renderMap(const uint8_t level[], player_def *player, double amount_jogging)
 }
 
 void renderEntities(entity_def* entity, player_def* player, uint8_t num_entities) {  
-  // calculate distances to the player
-  /*
-  for(int i = 0; i < num_entities; i++) {
-    entity[i].distance = ((player.x - entity[i].x) * (player.x - entity[i].x) + (player.y - entity[i].y) * (player.y - entity[i].y)); 
-  }
-  */
-
   // todo: sort sprites from far to close
   
-  for (int i=0; i<num_entities; i++) {
+  for (uint8_t i=0; i<num_entities; i++) {
     if (entity[i].state == S_HIDDEN) continue;
     
     //translate sprite position to relative to camera
@@ -224,18 +301,20 @@ void renderEntities(entity_def* entity, player_def* player, uint8_t num_entities
     double transform_x = inv_det * (player->dir_y * sprite_x - player->dir_x * sprite_y);
     double transform_y = inv_det * (-player->plane_y * sprite_x + player->plane_x * sprite_y); // Z in screen
 
-    if (transform_y < 0 || transform_y > MAX_SPRITE_DEPTH) {
+    if (transform_y <= 0 || transform_y > MAX_SPRITE_DEPTH) {
       continue;
     }
 
-    int sprite_screen_x = int((SCREEN_WIDTH / 2) * (1 + transform_x / transform_y));
+    int8_t sprite_screen_x = int((SCREEN_WIDTH / 2) * (1 + transform_x / transform_y));
 
     // don't draw if it's outside of screen
     if (sprite_screen_x < 0 || sprite_screen_x > SCREEN_WIDTH) {
       continue;
     }
 
-    switch(entity[i].type) {
+    uint8_t type = getTypeFromUID(entity[i].uid);
+
+    switch(type) {
       case T_ENEMY:
         drawSprite(
           sprite_screen_x - bmp_imp_width * .5 / transform_y, 
@@ -339,7 +418,7 @@ void loopGamePlay() {
   entity_def entity[MAX_ENTITIES];
   uint8_t num_entities = 0;
 
-  num_entities = initializeLevel(sto_level_1, &player, entity);
+  initializeLevel(sto_level_1, &player, entity);
   
   do {
     fps();
@@ -404,6 +483,9 @@ void loopGamePlay() {
       gun_fired = false;
     }
 
+    // Update things
+    updateEntities(entity, &player, num_entities);
+
     // Render stuff
     renderMap(sto_level_1, &player, abs(player.velocity) * MOV_SPEED_INV);
     renderEntities(entity, &player, num_entities);
@@ -423,7 +505,6 @@ void loopGamePlay() {
 void loopGameOver() {
    jumpTo(INTRO);    
 }
-
 
 void loop(void) {  
   switch(scene) {
