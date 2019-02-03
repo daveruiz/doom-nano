@@ -13,12 +13,15 @@
 #define GUN_SHOT_POS          30
 #define ROT_SPEED             .12
 #define MOV_SPEED             .2
-#define MOV_SPEED_INV         5     // 1 / MOV_SPEED
+#define MOV_SPEED_INV         5         // 1 / MOV_SPEED
 #define JOGGING_SPEED         .005
 
 #define MAX_ENTITIES          8
 #define MAX_DOZED_ENTITIES    32
 #define MAX_ENTITY_DISTANCE   8
+
+#define ITEM_COLLIDER_SQRAD   .2 * .2    // squared
+#define ENEMY_COLLIDER_SQRAD  .3 * .3
 
 // entity status
 #define S_STAND               0
@@ -45,7 +48,7 @@ struct entity_def {
   double y;
   uint8_t state;
   uint8_t health;
-  uint16_t distance;
+  double distance;
 };
 
 // Static entities
@@ -81,8 +84,8 @@ void jumpTo(uint8_t target_scene) {
   exit_scene = true;
 }
 
+// Finds the player in the map
 void initializeLevel(const uint8_t level[]) {
-  // Find the player
   for (int y = LEVEL_HEIGHT-1; y >= 0; y--) {
     for (int x = 0; x < LEVEL_WIDTH; x++) {
       uint8_t block = getBlockAt(level, x, y);
@@ -150,6 +153,7 @@ void spawnEntity(uint16_t uid, uint8_t x, uint8_t y) {
       break;     
   }
 
+  /*
   Serial.print(F("Spawned ID "));
   Serial.print(uid);
   Serial.print(F(" "));
@@ -162,10 +166,11 @@ void spawnEntity(uint16_t uid, uint8_t x, uint8_t y) {
   Serial.print(num_entities);
   Serial.print(F(")"));
   Serial.println();
+  */
 }
 
-// We skip sqrt. So distances checked must be squared
-uint16_t getSquaredDistanceToPlayer(uint8_t x, uint8_t y) {
+// We skip sqrt. So compared distances must be squared
+double getSquaredDistanceToPlayer(uint8_t x, uint8_t y) {
   return (player.x - x) * (player.x - x) 
     + (player.y - y) * (player.y - y); 
 }
@@ -180,6 +185,7 @@ void removeEntity(uint16_t uid) {
       found = true;
       num_entities--;
 
+      /*
       Serial.print(F("Removed ID "));
       Serial.print(uid);
       Serial.print(F(" "));
@@ -188,6 +194,7 @@ void removeEntity(uint16_t uid) {
       Serial.print(num_entities);
       Serial.print(F(")"));
       Serial.println();
+      */
     }
 
     // displace entities
@@ -244,7 +251,7 @@ void updateEntities() {
       }
 
       case E_MEDIKIT: {
-        if (entity[i].distance < 1) {
+        if (entity[i].distance < ITEM_COLLIDER_SQRAD) {
           // pickup
           entity[i].state = S_HIDDEN;
           player.health = min(100, player.health + 50);
@@ -253,7 +260,7 @@ void updateEntities() {
       }
 
       case E_KEY: {
-        if (entity[i].distance < 1) {
+        if (entity[i].distance < ITEM_COLLIDER_SQRAD) {
           // pickup
           entity[i].state = S_HIDDEN;
           player.keys++;
@@ -381,14 +388,16 @@ void renderEntities() {
     double inv_det = 1.0 / (player.plane_x * player.dir_y - player.dir_x * player.plane_y); 
 
     double transform_x = inv_det * (player.dir_y * sprite_x - player.dir_x * sprite_y);
-    double transform_y = inv_det * (-player.plane_y * sprite_x + player.plane_x * sprite_y); // Z in screen
+    double transform_y = inv_det * (- player.plane_y * sprite_x + player.plane_x * sprite_y); // Z in screen
 
     // behind the player or too far away
     if (transform_y <= 0 || transform_y > MAX_SPRITE_DEPTH) {
       continue;
     }
 
-    int8_t sprite_screen_x = (SCREEN_WIDTH / 2) * (1 + transform_x / transform_y);
+    // double because int causes artifacts when sprites are out of screen
+    // but close on Z
+    double sprite_screen_x = (double) HALF_WIDTH * (1.0 + transform_x / transform_y);
 
     // don't draw if it's outside of screen
     if (sprite_screen_x < 0 || sprite_screen_x > SCREEN_WIDTH) {
@@ -402,10 +411,12 @@ void renderEntities() {
     Serial.print(entity[i].uid);
     Serial.print(F(" "));
     Serial.print(type, BIN);
-    Serial.print(F(" "));
+    Serial.print(F(" x:"));
     Serial.print(entity[i].x);
-    Serial.print(F(" "));
+    Serial.print(F(" y:"));
     Serial.print(entity[i].y);
+    Serial.print(F(" z:"));
+    Serial.print(transform_y);
     Serial.print(F(" ("));
     Serial.print(i);
     Serial.print(F(")"));
@@ -507,6 +518,41 @@ void loopIntro() {
   } while(!exit_scene);
 }
 
+bool detectPlayerCollision(double relative_x, double relative_y) {
+  // Wall collision
+  if (getBlockAt(sto_level_1, player.x + relative_x, player.y + relative_y) == E_WALL) {
+    return true;
+  }
+
+  for (uint8_t i; i<num_entities; i++) {
+    uint8_t type = getTypeFromUID(entity[i].uid);
+    if (type == E_MEDIKIT || type == E_KEY) {
+      // we don´t collide with those entities
+      continue;
+    }
+
+    double distance = getSquaredDistanceToPlayer(entity[i].x - relative_x, entity[i].y - relative_y);
+
+    /*
+    Serial.print(relative_x, 4);
+    Serial.print(F(", "));
+    Serial.print(relative_y, 4);
+    Serial.print(F(" | "));
+    Serial.print(entity[i].distance, 4);
+    Serial.print(F(" > "));
+    Serial.print(distance, 4);
+    Serial.println();
+    */
+
+    // Check distance and if it´s getting closer
+    if (distance < ENEMY_COLLIDER_SQRAD && distance < entity[i].distance) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 void loopGamePlay() {
   bool gun_fired = false;
   uint8_t gun_pos = 0;
@@ -520,7 +566,6 @@ void loopGamePlay() {
     display.clearDisplay();
 
     // Player movement
-    
     if (p_up) {
       player.velocity += (MOV_SPEED - player.velocity) * .4; ;
     } else if (p_down) {
@@ -529,11 +574,13 @@ void loopGamePlay() {
       player.velocity *= .5;
     }
 
+    // Collision
     if (abs(player.velocity) > 0.003) {
-      if (getBlockAt(sto_level_1, player.x + player.dir_x * player.velocity * 2, player.y) != E_WALL) 
+      if (!detectPlayerCollision(player.dir_x * player.velocity * 2, 0)) 
         player.x += player.dir_x * player.velocity * delta;
-      if (getBlockAt(sto_level_1, player.x, player.y + player.dir_y * player.velocity * 2) != E_WALL) 
+      if (!detectPlayerCollision(0, player.dir_y * player.velocity * 2)) 
         player.y += player.dir_y * player.velocity * delta;
+        
     } else {
       player.velocity = 0;
     }
