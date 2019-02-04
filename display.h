@@ -23,6 +23,7 @@ void fps();
 bool getMeltedPixel(uint8_t x, uint8_t y);
 bool getGradientPixel(uint8_t x, uint8_t y, uint8_t i);
 void meltScreen();
+void drawByte(uint8_t x, uint8_t y, uint8_t b);
 void drawPixel(uint8_t x, uint8_t y, boolean color);
 void drawVLine(int8_t x, int8_t start_y, int8_t end_y, uint8_t intensity);
 void drawSprite(uint8_t x, uint8_t y, const uint8_t bitmap[], const uint8_t mask[], int16_t w, int16_t h, uint8_t sprite, double distance);
@@ -93,6 +94,13 @@ bool getMeltedPixel(uint8_t frame, uint8_t x, uint8_t y) {
   #endif
 }
 
+// Faster way to render vertical bits
+void drawByte(uint8_t x, uint8_t y, uint8_t b) {
+  #ifdef OPTIMIZE_SSD1306
+  display_buf[(y/8)*SCREEN_WIDTH + x] = b;
+  #endif  
+}
+
 // Melt the screen DOOM style
 void meltScreen() {
   uint8_t frames = 0;
@@ -106,8 +114,7 @@ void meltScreen() {
     // The screen distribution is 8 rows of 128x8 pixels
     for (y = SCREEN_HEIGHT - 8; y >= 0; y-=8) {
       for (x = 0; x < SCREEN_WIDTH;  x++) {
-        // To speed up the animation, it writes directly to buffer the full byte
-        display_buf[(y/8)*SCREEN_WIDTH + x] = 
+        drawByte(x, y,
             (getMeltedPixel(frames, x, y+7) << 7)
           | (getMeltedPixel(frames, x, y+6) << 6)
           | (getMeltedPixel(frames, x, y+5) << 5)
@@ -115,7 +122,8 @@ void meltScreen() {
           | (getMeltedPixel(frames, x, y+3) << 3)
           | (getMeltedPixel(frames, x, y+2) << 2)
           | (getMeltedPixel(frames, x, y+1) << 1)
-          | getMeltedPixel(frames, x, y);
+          | getMeltedPixel(frames, x, y)
+        );
       }
     }
     #else
@@ -163,21 +171,46 @@ void drawPixel(uint8_t x, uint8_t y, boolean color) {
 // Custom draw Vertical lines that fills with a pattern to simulate
 // different brightness. Affected by RES_DIVIDER
 void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity) {
-  int8_t y = start_y;
-  int8_t s = end_y > y ? 1 : -1;
+  int8_t y;
+  int8_t lower_y = max(min(start_y, end_y), 0);
+  int8_t higher_y = min(max(start_y, end_y), SCREEN_HEIGHT);
 
-  while (y != end_y) {
-    if (y>=0 && y<SCREEN_HEIGHT) {
-      for (uint8_t c=0; c<RES_DIVIDER; c++) {
-        // bypass black pixels
-        if (getGradientPixel(x+c, y, intensity)) {
-          drawPixel(x+c, y, 1);
-        }
+  #ifdef OPTIMIZE_SSD1306
+  uint8_t bp;
+  for (uint8_t c=0; c<RES_DIVIDER; c++) {
+    y = lower_y;
+    uint8_t b = 0;
+    while (y <= higher_y) {
+      bp = y % 8;
+      b = b | getGradientPixel(x+c, y, intensity) << bp;
+
+      if (bp == 7) {
+        // write the whole byte
+        drawByte(x+c, y, b);
+        b = 0;
+      }
+      
+      y++;
+    }
+
+    // draw last byte
+    if (bp != 7) {
+      drawByte(x+c, y-1, b);
+    }
+  }
+  #else
+  y = lower_y;
+  while (y <= higher_y) {
+    for (uint8_t c=0; c<RES_DIVIDER; c++) {
+      // bypass black pixels
+      if (getGradientPixel(x+c, y, intensity)) {
+        drawPixel(x+c, y, 1);
       }
     }
     
-    y+=s;
+    y++;
   }
+  #endif
 }
 
 // Custom drawBitmap method with scale support, mask, zindex and pattern filling
