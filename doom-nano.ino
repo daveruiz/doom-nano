@@ -16,12 +16,14 @@
 #define MOV_SPEED_INV         5         // 1 / MOV_SPEED
 #define JOGGING_SPEED         .005
 
+#define DISTANCE_MULTIPLIER   10
 #define MAX_ENTITIES          8
 #define MAX_DOZED_ENTITIES    32
-#define MAX_ENTITY_DISTANCE   8
 
-#define ITEM_COLLIDER_SQRAD   .2 * .2    // squared
-#define ENEMY_COLLIDER_SQRAD  .3 * .3
+#define MAX_ENTITY_DISTANCE   80        // * DISTANCE_MULTIPLIER
+#define MAX_ENEMY_VIEW        60        // * DISTANCE_MULTIPLIER
+#define ITEM_COLLIDER_RAD     3         // * DISTANCE_MULTIPLIER
+#define ENEMY_COLLIDER_RAD    6         // * DISTANCE_MULTIPLIER
 
 // entity status
 #define S_STAND               0
@@ -29,9 +31,13 @@
 #define S_FIRING              2
 #define S_HIDDEN              3
 
-struct player_def {
+struct position_def {
   double x;
   double y;
+};
+
+struct player_def {
+  position_def pos;
   double dir_x;
   double dir_y;
   double plane_x;
@@ -44,11 +50,10 @@ struct player_def {
 // Spawned entities
 struct entity_def {
   uint16_t uid;
-  double x;
-  double y;
+  position_def pos;
   uint8_t state;
   uint8_t health;
-  double distance;
+  uint8_t distance;
 };
 
 // Static entities
@@ -62,6 +67,7 @@ struct dozed_entity_def {
 // general
 uint8_t scene = INTRO;
 bool exit_scene = false;
+bool flash_screen = false;
 
 // game
 // player and entities
@@ -91,7 +97,7 @@ void initializeLevel(const uint8_t level[]) {
       uint8_t block = getBlockAt(level, x, y);
 
       if (block == E_PLAYER) {
-        player = { (double) x + .5, (double) y + .5, 1, 0, 0, -0.66, 0, 100, 0 };
+        player = { { (double) x + .5, (double) y + .5 }, 1, 0, 0, -0.66, 0, 100, 0 };
         return;
       }
     }
@@ -133,21 +139,21 @@ void spawnEntity(uint16_t uid, uint8_t x, uint8_t y) {
   switch (type) {
     case E_ENEMY: 
       if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = { uid, (double) x + .5, (double) y + .5, S_STAND, 20 };
+        entity[num_entities] = { uid, { (double) x + .5, (double) y + .5 }, S_STAND, 20 };
         num_entities++;
       }
       break;
 
     case E_KEY: 
       if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = { uid, (double) x + .5, (double) y + .5, S_STAND, 0 };
+        entity[num_entities] = { uid, { (double) x + .5, (double) y + .5 }, S_STAND, 0 };
         num_entities++;
       }
       break;
 
     case E_MEDIKIT:
       if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = { uid, (double) x + .5, (double) y + .5, S_STAND, 0 };
+        entity[num_entities] = { uid, { (double) x + .5, (double) y + .5 }, S_STAND, 0 };
         num_entities++;
       }
       break;     
@@ -169,10 +175,8 @@ void spawnEntity(uint16_t uid, uint8_t x, uint8_t y) {
   */
 }
 
-// We skip sqrt. So compared distances must be squared
-double getSquaredDistanceToPlayer(uint8_t x, uint8_t y) {
-  return (player.x - x) * (player.x - x) 
-    + (player.y - y) * (player.y - y); 
+uint8_t getDistance(position_def pos_a, position_def pos_b) {
+  return sqrt(sq(pos_a.x - pos_b.x) + sq(pos_a.y - pos_b.y)) * DISTANCE_MULTIPLIER;
 }
 
 void removeEntity(uint16_t uid) {
@@ -225,33 +229,34 @@ bool isDozed(uint16_t uid) {
 void updateEntities() {  
   uint8_t i = 0;
   while(i<num_entities) {
-    if (entity[i].state == S_HIDDEN) {
-      i++;
-      continue;
-    }
-
     // update distance
-    entity[i].distance = getSquaredDistanceToPlayer(entity[i].x, entity[i].y);
+    entity[i].distance = getDistance(player.pos, entity[i].pos);
 
     // too far away. put it in doze mode
-    if (entity[i].distance > MAX_ENTITY_DISTANCE * MAX_ENTITY_DISTANCE) {
+    if (entity[i].distance > MAX_ENTITY_DISTANCE) {
       removeEntity(entity[i].uid);
       // don't increase 'i', since current one has been removed
       continue;
     }  
 
+    // bypass render if hidden
+    if (entity[i].state == S_HIDDEN) {
+      i++;
+      continue;
+    }
+
     uint8_t type = getTypeFromUID(entity[i].uid);
    
     switch (type) {
       case E_ENEMY: {
-        if (entity[i].distance < 16) {
+        if (entity[i].distance < MAX_ENEMY_VIEW) {
           // move towards to the player. todo
         }
         break;
       }
 
       case E_MEDIKIT: {
-        if (entity[i].distance < ITEM_COLLIDER_SQRAD) {
+        if (entity[i].distance < ITEM_COLLIDER_RAD) {
           // pickup
           entity[i].state = S_HIDDEN;
           player.health = min(100, player.health + 50);
@@ -260,7 +265,7 @@ void updateEntities() {
       }
 
       case E_KEY: {
-        if (entity[i].distance < ITEM_COLLIDER_SQRAD) {
+        if (entity[i].distance < ITEM_COLLIDER_RAD) {
           // pickup
           entity[i].state = S_HIDDEN;
           player.keys++;
@@ -294,25 +299,25 @@ void renderMap(const uint8_t level[], double amount_jogging) {
     camera_x = 2 * (double) x / SCREEN_WIDTH - 1;
     ray_x = player.dir_x + player.plane_x * camera_x;
     ray_y = player.dir_y + player.plane_y * camera_x;
-    map_x = uint8_t(player.x);
-    map_y = uint8_t(player.y);
+    map_x = uint8_t(player.pos.x);
+    map_y = uint8_t(player.pos.y);
     delta_x = abs(1 / ray_x);
     delta_y = abs(1 / ray_y);
 
     if (ray_x < 0) {
       step_x = -1;
-      side_x = (player.x - map_x) * delta_x;
+      side_x = (player.pos.x - map_x) * delta_x;
     } else {
       step_x = 1;
-      side_x = (map_x + 1.0 - player.x) * delta_x;
+      side_x = (map_x + 1.0 - player.pos.x) * delta_x;
     }
 
     if (ray_y < 0) {
       step_y = -1;
-      side_y = (player.y - map_y) * delta_y;
+      side_y = (player.pos.y - map_y) * delta_y;
     } else {
       step_y = 1;
-      side_y = (map_y + 1.0 - player.y) * delta_y;
+      side_y = (map_y + 1.0 - player.pos.y) * delta_y;
     }
 
     // Wall detection
@@ -339,7 +344,7 @@ void renderMap(const uint8_t level[], double amount_jogging) {
         // cost scan for them in another loop
         if (block == E_ENEMY || block & 0b00001000) {
           // Check that it's close to the player
-          if (getSquaredDistanceToPlayer(map_x, map_y) < MAX_ENTITY_DISTANCE * MAX_ENTITY_DISTANCE) {
+          if (getDistance(player.pos, { map_x, map_y }) < MAX_ENTITY_DISTANCE) {
             uid = getEntityUID(block, map_x, map_y);
             if (!isSpawned(uid)) {
               spawnEntity(uid, map_x, map_y);
@@ -353,9 +358,9 @@ void renderMap(const uint8_t level[], double amount_jogging) {
 
     if (hit) {
       if (side == 0) {
-        distance = max(1, (map_x - player.x + (1 - step_x) / 2) / ray_x);
+        distance = max(1, (map_x - player.pos.x + (1 - step_x) / 2) / ray_x);
       } else {
-        distance = max(1, (map_y - player.y + (1 - step_y) / 2) / ray_y);
+        distance = max(1, (map_y - player.pos.y + (1 - step_y) / 2) / ray_y);
       }
   
       // store zbuffer value for the column
@@ -381,8 +386,8 @@ void renderEntities() {
     if (entity[i].state == S_HIDDEN) continue;
     
     //translate sprite position to relative to camera
-    double sprite_x = entity[i].x - player.x;
-    double sprite_y = entity[i].y - player.y;
+    double sprite_x = entity[i].pos.x - player.pos.x;
+    double sprite_y = entity[i].pos.y - player.pos.y;
     
     //required for correct matrix multiplication
     double inv_det = 1.0 / (player.plane_x * player.dir_y - player.dir_x * player.plane_y); 
@@ -412,9 +417,9 @@ void renderEntities() {
     Serial.print(F(" "));
     Serial.print(type, BIN);
     Serial.print(F(" x:"));
-    Serial.print(entity[i].x);
+    Serial.print(entity[i].pos.x);
     Serial.print(F(" y:"));
-    Serial.print(entity[i].y);
+    Serial.print(entity[i].pos.y);
     Serial.print(F(" z:"));
     Serial.print(transform_y);
     Serial.print(F(" ("));
@@ -520,18 +525,19 @@ void loopIntro() {
 
 bool detectPlayerCollision(double relative_x, double relative_y) {
   // Wall collision
-  if (getBlockAt(sto_level_1, player.x + relative_x, player.y + relative_y) == E_WALL) {
+  if (getBlockAt(sto_level_1, player.pos.x + relative_x, player.pos.y + relative_y) == E_WALL) {
     return true;
   }
 
-  for (uint8_t i; i<num_entities; i++) {
+  for (uint8_t i = 0; i<num_entities; i++) {
     uint8_t type = getTypeFromUID(entity[i].uid);
+
     if (type == E_MEDIKIT || type == E_KEY) {
       // we don´t collide with those entities
       continue;
     }
 
-    double distance = getSquaredDistanceToPlayer(entity[i].x - relative_x, entity[i].y - relative_y);
+    uint16_t distance = getDistance(player.pos, { entity[i].pos.x - relative_x, entity[i].pos.y - relative_y });
 
     /*
     Serial.print(relative_x, 4);
@@ -545,7 +551,7 @@ bool detectPlayerCollision(double relative_x, double relative_y) {
     */
 
     // Check distance and if it´s getting closer
-    if (distance < ENEMY_COLLIDER_SQRAD && distance < entity[i].distance) {
+    if (distance < ENEMY_COLLIDER_RAD && distance < entity[i].distance) {
       return true;
     }
   }
@@ -577,9 +583,9 @@ void loopGamePlay() {
     // Collision
     if (abs(player.velocity) > 0.003) {
       if (!detectPlayerCollision(player.dir_x * player.velocity * 2, 0)) 
-        player.x += player.dir_x * player.velocity * delta;
+        player.pos.x += player.dir_x * player.velocity * delta;
       if (!detectPlayerCollision(0, player.dir_y * player.velocity * 2)) 
-        player.y += player.dir_y * player.velocity * delta;
+        player.pos.y += player.dir_y * player.velocity * delta;
         
     } else {
       player.velocity = 0;
