@@ -1,6 +1,8 @@
 #include <Wire.h>
 #include <Adafruit_SSD1306.h>
 
+#define OPTIMIZE_SSD1306                // Optimizations for SSD1366 displays
+
 #define SCREEN_WIDTH        128
 #define SCREEN_HEIGHT       64
 #define HALF_WIDTH          64
@@ -37,7 +39,11 @@ double lastFrameTime = 0;
 const static char PROGMEM melt_offsets[] = "1234543234323454343456754321234321234543456543212345432123432123432345676";
 const static uint8_t PROGMEM bit_mask[8] = { B10000000, B01000000, B00100000, B00010000, B00001000, B00000100, B00000010, B00000001 };
 
+#ifdef OPTIMIZE_SSD1306
+// Optimizations for SSD1306 handles buffer directly
 uint8_t *display_buf;
+#endif
+
 // We don't handle more than MAX_RENDER_DEPTH depth, so we can safety store
 // z values in a byte with 1 decimal and save some memory,
 uint8_t zbuffer[SCREEN_WIDTH/Z_RES_DIVIDER];
@@ -51,7 +57,9 @@ void setupDisplay() {
   }
 
   display.clearDisplay();
+  #ifdef OPTIMIZE_SSD1306
   display_buf = display.getBuffer();
+  #endif
 
   // initialize z buffer
   for (uint8_t i=0; i<SCREEN_WIDTH/Z_RES_DIVIDER; i++) zbuffer[i] = 255;
@@ -73,17 +81,16 @@ double getActualFps() {
 // Similar to adafruit::getPixel but removed some checks to make it faster. 
 bool getMeltedPixel(uint8_t frame, uint8_t x, uint8_t y) {
   uint8_t offset = pgm_read_byte(melt_offsets + x%64) - 48; // get "random:" numbers from 0 - 9
-
-  // Return same pixel
-  if (frame < offset) 
-    return display_buf[x + (y / 8) * SCREEN_WIDTH] & (1 << (y & 7));
-
-  int8_t dy = y - MELT_SPEED;
+  int8_t dy = frame < offset ? y : y - MELT_SPEED;
   
   // Return black
   if (dy < 0) return false; 
-   
+
+  #ifdef OPTIMIZE_SSD1306
   return display_buf[x + (dy / 8) * SCREEN_WIDTH] & (1 << (dy & 7));
+  #else
+  return display.getPixel(x, dy);
+  #endif
 }
 
 // Melt the screen DOOM style
@@ -95,6 +102,7 @@ void meltScreen() {
   do {  
     fps();
 
+    #ifdef OPTIMIZE_SSD1306
     // The screen distribution is 8 rows of 128x8 pixels
     for (y = SCREEN_HEIGHT - 8; y >= 0; y-=8) {
       for (x = 0; x < SCREEN_WIDTH;  x++) {
@@ -110,6 +118,13 @@ void meltScreen() {
           | getMeltedPixel(frames, x, y);
       }
     }
+    #else
+    for (y = SCREEN_HEIGHT; y >= 0; y--) {
+      for (x = 0; x < SCREEN_WIDTH;  x++) {
+        display.drawPixel(x, y, getMeltedPixel(frames, x, y));        
+      }
+    }
+    #endif
 
     display.display();
 
@@ -129,8 +144,10 @@ boolean getGradientPixel(uint8_t x, uint8_t y, uint8_t i) {
   return pgm_read_byte_near(gradient + index) & pgm_read_byte(bit_mask + x % 8) ? 1 : 0;  
 }
 
-// Faster drawPixel
+// Faster drawPixel than display.drawPixel
+// Avoids some checks to make it faster
 void drawPixel(uint8_t x, uint8_t y, boolean color) {
+  #ifdef OPTIMIZE_SSD1306
   if (color) {
     // white
     display_buf[x + (y/8)*SCREEN_WIDTH] |= (1 << (y&7));
@@ -138,6 +155,9 @@ void drawPixel(uint8_t x, uint8_t y, boolean color) {
     // black
     display_buf[x + (y/8)*SCREEN_WIDTH] &= ~(1 << (y&7));
   }
+  #else
+  display.drawPixel(x, y, color);
+  #endif
 }
 
 // Custom draw Vertical lines that fills with a pattern to simulate
