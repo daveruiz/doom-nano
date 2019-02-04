@@ -558,8 +558,8 @@ const static uint8_t bmp_items_mask[] PROGMEM = {
   0x00, 0x00, 
 };
 
-// gradients
-// here width and height are in bytes
+// Gradient for lighting. 
+// Note: Width and height are in bytes
 #define gradient_width 2
 #define gradient_height 8
 #define gradient_count 8

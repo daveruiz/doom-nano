@@ -23,7 +23,7 @@
 #define MAX_ENTITY_DISTANCE   80        // * DISTANCE_MULTIPLIER
 #define MAX_ENEMY_VIEW        60        // * DISTANCE_MULTIPLIER
 #define ITEM_COLLIDER_RAD     3         // * DISTANCE_MULTIPLIER
-#define ENEMY_COLLIDER_RAD    6         // * DISTANCE_MULTIPLIER
+#define ENEMY_COLLIDER_RAD    3         // * DISTANCE_MULTIPLIER
 
 // entity status
 #define S_STAND               0
@@ -67,7 +67,8 @@ struct dozed_entity_def {
 // general
 uint8_t scene = INTRO;
 bool exit_scene = false;
-bool flash_screen = false;
+bool invert_screen = false;
+uint8_t flash_screen = 0;
 
 // game
 // player and entities
@@ -260,6 +261,7 @@ void updateEntities() {
           // pickup
           entity[i].state = S_HIDDEN;
           player.health = min(100, player.health + 50);
+          flash_screen = 1;
         }
         break; 
       }
@@ -269,6 +271,7 @@ void updateEntities() {
           // pickup
           entity[i].state = S_HIDDEN;
           player.keys++;
+          flash_screen = 1;
         }
         break; 
       }
@@ -394,6 +397,7 @@ void renderEntities() {
 
     double transform_x = inv_det * (player.dir_y * sprite_x - player.dir_x * sprite_y);
     double transform_y = inv_det * (- player.plane_y * sprite_x + player.plane_x * sprite_y); // Z in screen
+    double half_width = .5 / transform_y;
 
     // behind the player or too far away
     if (transform_y <= 0 || transform_y > MAX_SPRITE_DEPTH) {
@@ -405,7 +409,7 @@ void renderEntities() {
     double sprite_screen_x = (double) HALF_WIDTH * (1.0 + transform_x / transform_y);
 
     // don't draw if it's outside of screen
-    if (sprite_screen_x < 0 || sprite_screen_x > SCREEN_WIDTH) {
+    if (sprite_screen_x < 0 - half_width || sprite_screen_x > SCREEN_WIDTH + half_width) {
       continue;
     }
 
@@ -637,8 +641,17 @@ void loopGamePlay() {
     renderEntities();
     renderGun(gun_pos, abs(player.velocity) * MOV_SPEED_INV);
     renderFps();
+
+    // flash screen
+    if (flash_screen > 0) {
+      invert_screen = !invert_screen;
+      flash_screen--;
+    } else if (invert_screen) {
+      invert_screen = 0;
+    }
     
     // Draw the frame
+    display.invertDisplay(invert_screen);
     display.display();
 
     // Exit routine
