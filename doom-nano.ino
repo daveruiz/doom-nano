@@ -397,24 +397,22 @@ void renderEntities() {
 
     double transform_x = inv_det * (player.dir_y * sprite_x - player.dir_x * sprite_y);
     double transform_y = inv_det * (- player.plane_y * sprite_x + player.plane_x * sprite_y); // Z in screen
-    double half_width = .5 / transform_y;
 
-    // behind the player or too far away
-    if (transform_y <= 0 || transform_y > MAX_SPRITE_DEPTH) {
+    // don´t render if behind the player or too far away
+    if (transform_y <= 0.1 || transform_y > MAX_SPRITE_DEPTH) {
       continue;
     }
 
-    // double because int causes artifacts when sprites are out of screen
-    // but close on Z
-    double sprite_screen_x = (double) HALF_WIDTH * (1.0 + transform_x / transform_y);
-
-    // don't draw if it's outside of screen
-    if (sprite_screen_x < 0 - half_width || sprite_screen_x > SCREEN_WIDTH + half_width) {
-      continue;
-    }
-
+    int16_t sprite_screen_x = HALF_WIDTH * (1.0 + transform_x / transform_y);
     uint8_t type = getTypeFromUID(entity[i].uid);
 
+    // don´t try to render if outside of screen
+    // doing this pre-shortcut due int16 -> int8 conversion makes out-of-screen
+    // values fit into the screen space
+    if (sprite_screen_x < - HALF_WIDTH || sprite_screen_x > SCREEN_WIDTH + HALF_WIDTH) {
+      continue;
+    }
+    
     /*
     Serial.print(F("Render ID "));
     Serial.print(entity[i].uid);
@@ -471,7 +469,7 @@ void renderEntities() {
           transform_y
         );
         break;
-    }
+    } 
   }
 }
 

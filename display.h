@@ -17,6 +17,8 @@
 #define MAX_RENDER_DEPTH    12
 #define MAX_SPRITE_DEPTH    8
 #define MELT_SPEED          6
+#define ZBUFFER_SIZE        SCREEN_WIDTH / Z_RES_DIVIDER
+#define DISTANCE_MULTIPLIER   10        // same than main file
 
 void setupDisplay();
 void fps();
@@ -24,10 +26,10 @@ bool getMeltedPixel(uint8_t x, uint8_t y);
 bool getGradientPixel(uint8_t x, uint8_t y, uint8_t i);
 void meltScreen();
 void drawByte(uint8_t x, uint8_t y, uint8_t b);
-void drawPixel(uint8_t x, uint8_t y, boolean color);
+void drawPixel(int8_t x, int8_t y, boolean color);
 void drawVLine(int8_t x, int8_t start_y, int8_t end_y, uint8_t intensity);
-void drawSprite(uint8_t x, uint8_t y, const uint8_t bitmap[], const uint8_t mask[], int16_t w, int16_t h, uint8_t sprite, double distance);
-void drawBitmap(int16_t x, int16_t y, const uint8_t bitmap[], int16_t w, int16_t h, uint8_t brightness);
+void drawSprite(int8_t x, int8_t y, const uint8_t bitmap[], const uint8_t mask[], int16_t w, int16_t h, uint8_t sprite, double distance);
+void drawBitmap(int8_t x, int8_t y, const uint8_t bitmap[], int16_t w, int16_t h, uint8_t brightness);
 
 // Initalize screen. Following line is for OLED 128x64 connected by I2C
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
@@ -47,7 +49,7 @@ uint8_t *display_buf;
 
 // We don't handle more than MAX_RENDER_DEPTH depth, so we can safety store
 // z values in a byte with 1 decimal and save some memory,
-uint8_t zbuffer[SCREEN_WIDTH/Z_RES_DIVIDER];
+uint8_t zbuffer[ZBUFFER_SIZE];
 
 void setupDisplay() {
   // Setup display
@@ -154,7 +156,7 @@ boolean getGradientPixel(uint8_t x, uint8_t y, uint8_t i) {
 
 // Faster drawPixel than display.drawPixel
 // Avoids some checks to make it faster
-void drawPixel(uint8_t x, uint8_t y, boolean color) {
+void drawPixel(int8_t x, int8_t y, boolean color) {
   #ifdef OPTIMIZE_SSD1306
   if (color) {
     // white
@@ -215,7 +217,7 @@ void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity) {
 
 // Custom drawBitmap method with scale support, mask, zindex and pattern filling
 void drawSprite(
-  uint8_t x, uint8_t y, 
+  int8_t x, int8_t y, 
   const uint8_t bitmap[], const uint8_t mask[],
   int16_t w, int16_t h, 
   uint8_t sprite, 
@@ -232,7 +234,7 @@ void drawSprite(
 
   // Don't draw if the sprite is hidden by z buffer
   // Not checked per pixer for performance reasons
-  if (zbuffer[int((double) x / Z_RES_DIVIDER)] < distance*10) {
+  if (zbuffer[int((double) min(max(x, 0), ZBUFFER_SIZE - 1) / Z_RES_DIVIDER)] < distance * DISTANCE_MULTIPLIER) {
     return;
   }
 
@@ -267,7 +269,7 @@ void drawSprite(
 
 // Custom draw bitmap with brighness support
 // Note: is much more slower than display.drawBitmap
-void drawBitmap(int16_t x, int16_t y,
+void drawBitmap(int8_t x, int8_t y,
   const uint8_t bitmap[], int16_t w, int16_t h, uint8_t brightness) {
 
   int16_t byteWidth = (w + 7) / 8; // Bitmap scanline pad = whole byte
