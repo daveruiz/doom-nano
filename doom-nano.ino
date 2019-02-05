@@ -367,7 +367,7 @@ void renderMap(const uint8_t level[], double amount_jogging) {
       }
   
       // store zbuffer value for the column
-      zbuffer[int((double) x / Z_RES_DIVIDER)] = min(distance * 10, 255);
+      zbuffer[int((double) x / Z_RES_DIVIDER)] = min(distance * DISTANCE_MULTIPLIER, 255);
   
       // rendered line height
       line_height = SCREEN_HEIGHT / distance;

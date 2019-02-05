@@ -158,6 +158,11 @@ boolean getGradientPixel(uint8_t x, uint8_t y, uint8_t i) {
 // Avoids some checks to make it faster
 void drawPixel(int8_t x, int8_t y, boolean color) {
   #ifdef OPTIMIZE_SSD1306
+  // prevent write out of screen buffer
+  if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= SCREEN_HEIGHT) {
+    return;
+  }
+  
   if (color) {
     // white
     display_buf[x + (y/8)*SCREEN_WIDTH] |= (1 << (y&7));
@@ -226,8 +231,8 @@ void drawSprite(
   uint8_t tw = (double) w / distance;
   uint8_t th = (double) h / distance;
   uint8_t byte_width = w / 8;
+  uint8_t pixel_size = max(1, 1.0 / distance);
   uint16_t sprite_offset = byte_width * h * sprite;
-  uint8_t intensity = gradient_count - int(distance / MAX_RENDER_DEPTH * gradient_count);
   
   bool pixel;
   bool maskPixel;
@@ -238,7 +243,7 @@ void drawSprite(
     return;
   }
 
-  for (uint8_t ty=0; ty<th; ty++) {
+  for (uint8_t ty=0; ty<th; ty+=pixel_size) {
     // Don't draw out of screen
     if (y + ty < 0 || y + ty >= SCREEN_HEIGHT) {
       continue;
@@ -246,7 +251,7 @@ void drawSprite(
 
     uint8_t sy = ty * distance; // The y from the sprite
     
-    for (uint8_t tx=0; tx<tw; tx++) {
+    for (uint8_t tx=0; tx<tw; tx+=pixel_size) {
       uint8_t sx = tx * distance; // The x from the sprite
       uint8_t byte_offset = sprite_offset + sy * byte_width + sx / 8;
 
@@ -259,9 +264,11 @@ void drawSprite(
       maskPixel = pgm_read_byte(mask + byte_offset) & pgm_read_byte(bit_mask + sx % 8) ? 1 : 0;
       
       if (maskPixel) {
-        drawPixel(x + tx, y + ty, pixel
-          ? getGradientPixel(tx, ty, intensity) 
-          : 0);
+        for (uint8_t ox=0; ox<pixel_size; ox++) {
+          for (uint8_t oy=0; oy<pixel_size; oy++) {
+            drawPixel(x + tx + ox, y + ty + oy, pixel);
+          }
+        }
       }
     }
   }
