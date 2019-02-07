@@ -2,6 +2,7 @@
 #include "sprites.h"
 #include "display.h"
 #include "input.h"
+#include <MemoryFree.h>
 
 // scenes
 #define INTRO                 0
@@ -9,16 +10,15 @@
 #define GAME_OVER             2
 
 // game
-#define GUN_TARGET_POS        26
-#define GUN_SHOT_POS          30
+#define GUN_TARGET_POS        18
+#define GUN_SHOT_POS          GUN_TARGET_POS + 4
 #define ROT_SPEED             .12
 #define MOV_SPEED             .2
 #define MOV_SPEED_INV         5         // 1 / MOV_SPEED
 #define JOGGING_SPEED         .005
 
-#define DISTANCE_MULTIPLIER   10
-#define MAX_ENTITIES          8
-#define MAX_DOZED_ENTITIES    32
+#define MAX_ENTITIES          6
+#define MAX_DOZED_ENTITIES    28
 
 #define MAX_ENTITY_DISTANCE   80        // * DISTANCE_MULTIPLIER
 #define MAX_ENEMY_VIEW        60        // * DISTANCE_MULTIPLIER
@@ -31,33 +31,31 @@
 #define S_FIRING              2
 #define S_HIDDEN              3
 
-struct position_def {
+struct Coords {
   double x;
   double y;
 };
 
-struct player_def {
-  position_def pos;
-  double dir_x;
-  double dir_y;
-  double plane_x;
-  double plane_y;
+struct Player {
+  Coords pos;
+  Coords dir;
+  Coords plane;
   double velocity;
   uint8_t health;
   uint8_t keys;
 };
 
 // Spawned entities
-struct entity_def {
+struct Entity {
   uint16_t uid;
-  position_def pos;
+  Coords pos;
   uint8_t state;
   uint8_t health;
   uint8_t distance;
 };
 
 // Static entities
-struct dozed_entity_def {
+struct DozedEntity {
   uint8_t x;
   uint8_t y;
   uint16_t uid;
@@ -72,9 +70,9 @@ uint8_t flash_screen = 0;
 
 // game
 // player and entities
-player_def player;
-entity_def entity[MAX_ENTITIES];
-dozed_entity_def dozed_entity[MAX_DOZED_ENTITIES];
+Player player;
+Entity entity[MAX_ENTITIES];
+DozedEntity dozed_entity[MAX_DOZED_ENTITIES];
 uint8_t num_entities = 0;
 uint8_t num_dozed_entities = 0;
 uint8_t num_static_entities = 0;
@@ -98,7 +96,7 @@ void initializeLevel(const uint8_t level[]) {
       uint8_t block = getBlockAt(level, x, y);
 
       if (block == E_PLAYER) {
-        player = { { (double) x + .5, (double) y + .5 }, 1, 0, 0, -0.66, 0, 100, 0 };
+        player = { { .5 + x, .5 + y }, { 1, 0 }, { 0, -0.66 }, 0, 100, 0 };
         return;
       }
     }
@@ -140,43 +138,28 @@ void spawnEntity(uint16_t uid, uint8_t x, uint8_t y) {
   switch (type) {
     case E_ENEMY: 
       if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = { uid, { (double) x + .5, (double) y + .5 }, S_STAND, 20 };
+        entity[num_entities] = { uid, { .5 + x, .5 + y }, S_STAND, 20 };
         num_entities++;
       }
       break;
 
     case E_KEY: 
       if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = { uid, { (double) x + .5, (double) y + .5 }, S_STAND, 0 };
+        entity[num_entities] = { uid, { .5 + x, .5 + y }, S_STAND, 0 };
         num_entities++;
       }
       break;
 
     case E_MEDIKIT:
       if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = { uid, { (double) x + .5, (double) y + .5 }, S_STAND, 0 };
+        entity[num_entities] = { uid, { .5 + x, .5 + y }, S_STAND, 0 };
         num_entities++;
       }
       break;     
-  }
-
-  /*
-  Serial.print(F("Spawned ID "));
-  Serial.print(uid);
-  Serial.print(F(" "));
-  Serial.print(type, BIN);
-  Serial.print(F(" "));
-  Serial.print(x);
-  Serial.print(F(" "));
-  Serial.print(y);
-  Serial.print(F(" (count "));
-  Serial.print(num_entities);
-  Serial.print(F(")"));
-  Serial.println();
-  */
+  }  
 }
 
-uint8_t getDistance(position_def pos_a, position_def pos_b) {
+uint8_t getDistance(Coords pos_a, Coords pos_b) {
   return sqrt(sq(pos_a.x - pos_b.x) + sq(pos_a.y - pos_b.y)) * DISTANCE_MULTIPLIER;
 }
 
@@ -189,17 +172,6 @@ void removeEntity(uint16_t uid) {
       // todo: doze it      
       found = true;
       num_entities--;
-
-      /*
-      Serial.print(F("Removed ID "));
-      Serial.print(uid);
-      Serial.print(F(" "));
-      Serial.print(getTypeFromUID(uid), BIN);
-      Serial.print(F(" (count "));
-      Serial.print(num_entities);
-      Serial.print(F(")"));
-      Serial.println();
-      */
     }
 
     // displace entities
@@ -261,6 +233,7 @@ void updateEntities() {
           // pickup
           entity[i].state = S_HIDDEN;
           player.health = min(100, player.health + 50);
+          updateHud();
           flash_screen = 1;
         }
         break; 
@@ -271,6 +244,7 @@ void updateEntities() {
           // pickup
           entity[i].state = S_HIDDEN;
           player.keys++;
+          updateHud();
           flash_screen = 1;
         }
         break; 
@@ -300,8 +274,8 @@ void renderMap(const uint8_t level[], double amount_jogging) {
  
   for (uint8_t x=0; x<SCREEN_WIDTH; x+=RES_DIVIDER) {
     camera_x = 2 * (double) x / SCREEN_WIDTH - 1;
-    ray_x = player.dir_x + player.plane_x * camera_x;
-    ray_y = player.dir_y + player.plane_y * camera_x;
+    ray_x = player.dir.x + player.plane.x * camera_x;
+    ray_y = player.dir.y + player.plane.y * camera_x;
     map_x = uint8_t(player.pos.x);
     map_y = uint8_t(player.pos.y);
     delta_x = abs(1 / ray_x);
@@ -367,15 +341,15 @@ void renderMap(const uint8_t level[], double amount_jogging) {
       }
   
       // store zbuffer value for the column
-      zbuffer[int((double) x / Z_RES_DIVIDER)] = min(distance * DISTANCE_MULTIPLIER, 255);
+      zbuffer[x / Z_RES_DIVIDER] = min(distance * DISTANCE_MULTIPLIER, 255);
   
       // rendered line height
-      line_height = SCREEN_HEIGHT / distance;
+      line_height = RENDER_HEIGHT / distance;
   
       drawVLine(
         x,
-        jogging / distance - line_height / 2 + SCREEN_HEIGHT / 2, 
-        jogging / distance + line_height / 2 + SCREEN_HEIGHT / 2, 
+        jogging / distance - line_height / 2 + RENDER_HEIGHT / 2, 
+        jogging / distance + line_height / 2 + RENDER_HEIGHT / 2, 
         gradient_count - int(distance / MAX_RENDER_DEPTH * gradient_count) - side * 2
       );
     }
@@ -393,10 +367,10 @@ void renderEntities() {
     double sprite_y = entity[i].pos.y - player.pos.y;
     
     //required for correct matrix multiplication
-    double inv_det = 1.0 / (player.plane_x * player.dir_y - player.dir_x * player.plane_y); 
+    double inv_det = 1.0 / (player.plane.x * player.dir.y - player.dir.x * player.plane.y); 
 
-    double transform_x = inv_det * (player.dir_y * sprite_x - player.dir_x * sprite_y);
-    double transform_y = inv_det * (- player.plane_y * sprite_x + player.plane_x * sprite_y); // Z in screen
+    double transform_x = inv_det * (player.dir.y * sprite_x - player.dir.x * sprite_y);
+    double transform_y = inv_det * (- player.plane.y * sprite_x + player.plane.x * sprite_y); // Z in screen
 
     // don´t render if behind the player or too far away
     if (transform_y <= 0.1 || transform_y > MAX_SPRITE_DEPTH) {
@@ -413,32 +387,15 @@ void renderEntities() {
       continue;
     }
     
-    /*
-    Serial.print(F("Render ID "));
-    Serial.print(entity[i].uid);
-    Serial.print(F(" "));
-    Serial.print(type, BIN);
-    Serial.print(F(" x:"));
-    Serial.print(entity[i].pos.x);
-    Serial.print(F(" y:"));
-    Serial.print(entity[i].pos.y);
-    Serial.print(F(" z:"));
-    Serial.print(transform_y);
-    Serial.print(F(" ("));
-    Serial.print(i);
-    Serial.print(F(")"));
-    Serial.println();
-    */
-
     switch(type) {
       case E_ENEMY:
         drawSprite(
-          sprite_screen_x - bmp_imp_width * .5 / transform_y, 
-          SCREEN_HEIGHT / 2 - 12 / transform_y, 
+          sprite_screen_x - BMP_IMP_WIDTH * .5 / transform_y, 
+          RENDER_HEIGHT / 2 - 8 / transform_y, 
           bmp_imp_bits, 
           bmp_imp_mask, 
-          bmp_imp_width, 
-          bmp_imp_height, 
+          BMP_IMP_WIDTH, 
+          BMP_IMP_HEIGHT, 
           int(millis() / 500) % 2, 
           transform_y
         );
@@ -446,12 +403,12 @@ void renderEntities() {
 
       case E_MEDIKIT:
         drawSprite(
-          sprite_screen_x - bmp_imp_width * .5 / transform_y, 
-          SCREEN_HEIGHT / 2 + 5 / transform_y, 
+          sprite_screen_x - BMP_ITEMS_WIDTH * .5 / transform_y, 
+          RENDER_HEIGHT / 2 + 5 / transform_y, 
           bmp_items_bits, 
           bmp_items_mask, 
-          bmp_items_width, 
-          bmp_items_height, 
+          BMP_ITEMS_WIDTH, 
+          BMP_ITEMS_HEIGHT, 
           0,
           transform_y
         );
@@ -459,12 +416,12 @@ void renderEntities() {
 
       case E_KEY:
         drawSprite(
-          sprite_screen_x - bmp_imp_width * .5 / transform_y, 
-          SCREEN_HEIGHT / 2 + 5 / transform_y, 
+          sprite_screen_x - BMP_ITEMS_WIDTH * .5 / transform_y, 
+          RENDER_HEIGHT / 2 + 5 / transform_y, 
           bmp_items_bits, 
           bmp_items_mask, 
-          bmp_items_width, 
-          bmp_items_height, 
+          BMP_ITEMS_WIDTH, 
+          BMP_ITEMS_HEIGHT, 
           1,
           transform_y
         );
@@ -476,34 +433,51 @@ void renderEntities() {
 void renderGun(uint8_t gun_pos, double amount_jogging) {
   // jogging
   char x = 48 + sin((double) millis() * JOGGING_SPEED) * 10 * amount_jogging;
-  char y = 64 - gun_pos + abs(cos((double) millis() * JOGGING_SPEED)) * 8 * amount_jogging;
+  char y = RENDER_HEIGHT - gun_pos + abs(cos((double) millis() * JOGGING_SPEED)) * 8 * amount_jogging;
 
   if (gun_pos > GUN_SHOT_POS - 2) {
     // Gun fire
-    display.drawBitmap(x + 6, y - 11, bmp_fire_bits, bmp_fire_width, bmp_fire_height, 1);
+    display.drawBitmap(x + 6, y - 11, bmp_fire_bits, BMP_FIRE_WIDTH, BMP_FIRE_HEIGHT, 1);
   }
+
+  // Don´t draw over the hud!
+  uint8_t clip_height = max(0, min(y + BMP_GUN_HEIGHT, RENDER_HEIGHT) - y);
   
   // Draw the gun (black mask + actual sprite).
-  display.drawBitmap(x, y, bmp_gun_mask, bmp_gun_width, bmp_gun_height, 0);
-  display.drawBitmap(x, y, bmp_gun_bits, bmp_gun_width, bmp_gun_height, 1);
+  display.drawBitmap(x, y, bmp_gun_mask, BMP_GUN_WIDTH, clip_height, 0);
+  display.drawBitmap(x, y, bmp_gun_bits, BMP_GUN_WIDTH, clip_height, 1);
 }
 
-void renderFps() {
-  display.setTextSize(0);
-  display.setTextColor(WHITE);
-  display.setCursor(0, -0);
-  display.print(int(getActualFps()));
+// Only needed first time
+void renderHud() {
+  drawText(2, 58, F("{}"), 0);        // Health symbol
+  drawText(40, 58, F("[]"), 0);       // Keys symbol
+  updateHud();
+}
+
+// Render values for the HUD
+void updateHud() {
+  display.fillRect(12, 58, 15, 6, 0);
+  display.fillRect(50, 58, 5, 6, 0);
+  drawText(12, 58, player.health);   
+  drawText(50, 58, player.keys);   
+}
+
+void renderStats() {
+  display.fillRect(88, 58, 38, 6, 0);
+  drawText(114, 58, int(getActualFps()));
+  // drawText(88, 58, freeMemory());
 }
 
 void loopIntro() {
   // fade in effect
   for (uint8_t i=0; i<8; i++) {
     drawBitmap(
-      (SCREEN_WIDTH - bmp_logo_width) / 2,
-      (SCREEN_HEIGHT - bmp_logo_height) / 2,
+      (SCREEN_WIDTH - BMP_LOGO_WIDTH) / 2,
+      (SCREEN_HEIGHT - BMP_LOGO_HEIGHT) / 2,
       bmp_logo_bits,
-      bmp_logo_width,
-      bmp_logo_height,
+      BMP_LOGO_WIDTH,
+      BMP_LOGO_HEIGHT,
       i
     );
     display.display();
@@ -511,11 +485,7 @@ void loopIntro() {
   }
 
   delay(1000);
-
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.setCursor(33, 56);
-  display.print(F("PRESS FIRE"));
+  drawText(38, 55, F("PRESS FIRE"));
   display.display();
 
   // wait for fire
@@ -526,31 +496,24 @@ void loopIntro() {
 }
 
 bool detectPlayerCollision(double relative_x, double relative_y) {
+  uint8_t type;
+  uint16_t distance;
+  uint8_t i = 0;
+  
   // Wall collision
   if (getBlockAt(sto_level_1, player.pos.x + relative_x, player.pos.y + relative_y) == E_WALL) {
     return true;
   }
 
-  for (uint8_t i = 0; i<num_entities; i++) {
-    uint8_t type = getTypeFromUID(entity[i].uid);
+  for (; i<num_entities; i++) {
+    type = getTypeFromUID(entity[i].uid);
 
     if (type == E_MEDIKIT || type == E_KEY) {
       // we don´t collide with those entities
       continue;
     }
 
-    uint16_t distance = getDistance(player.pos, { entity[i].pos.x - relative_x, entity[i].pos.y - relative_y });
-
-    /*
-    Serial.print(relative_x, 4);
-    Serial.print(F(", "));
-    Serial.print(relative_y, 4);
-    Serial.print(F(" | "));
-    Serial.print(entity[i].distance, 4);
-    Serial.print(F(" > "));
-    Serial.print(distance, 4);
-    Serial.println();
-    */
+    distance = getDistance(player.pos, { entity[i].pos.x - relative_x, entity[i].pos.y - relative_y });
 
     // Check distance and if it´s getting closer
     if (distance < ENEMY_COLLIDER_RAD && distance < entity[i].distance) {
@@ -564,14 +527,19 @@ bool detectPlayerCollision(double relative_x, double relative_y) {
 void loopGamePlay() {
   bool gun_fired = false;
   uint8_t gun_pos = 0;
+  double rot_speed;
+  double old_dir_x;
+  double old_plane_x;
 
   initializeLevel(sto_level_1);
+  renderHud();
   
   do {
     fps();
     readInput();
 
-    display.clearDisplay();
+    // Clear only the 3d view
+    display.fillRect(0, 0, SCREEN_WIDTH, RENDER_HEIGHT, 0);
 
     // Player movement
     if (p_up) {
@@ -584,10 +552,10 @@ void loopGamePlay() {
 
     // Collision
     if (abs(player.velocity) > 0.003) {
-      if (!detectPlayerCollision(player.dir_x * player.velocity * 2, 0)) 
-        player.pos.x += player.dir_x * player.velocity * delta;
-      if (!detectPlayerCollision(0, player.dir_y * player.velocity * 2)) 
-        player.pos.y += player.dir_y * player.velocity * delta;
+      if (!detectPlayerCollision(player.dir.x * player.velocity * 2, 0)) 
+        player.pos.x += player.dir.x * player.velocity * delta;
+      if (!detectPlayerCollision(0, player.dir.y * player.velocity * 2)) 
+        player.pos.y += player.dir.y * player.velocity * delta;
         
     } else {
       player.velocity = 0;
@@ -596,23 +564,21 @@ void loopGamePlay() {
     // Player rotation 
     
     if (p_right) {
-      double rot_speed = ROT_SPEED * delta;
-      double old_dir_x = player.dir_x;
-      player.dir_x = player.dir_x * cos(-rot_speed) - player.dir_y * sin(-rot_speed);
-      player.dir_y = old_dir_x * sin(-rot_speed) + player.dir_y * cos(-rot_speed);
-      double old_plane_x = player.plane_x;
-      player.plane_x = player.plane_x * cos(-rot_speed) - player.plane_y * sin(-rot_speed);
-      player.plane_y = old_plane_x * sin(-rot_speed) + player.plane_y * cos(-rot_speed);
-    }
-    
-    if (p_left) {
-      double rot_speed = ROT_SPEED * delta;
-      double old_dir_x = player.dir_x;
-      player.dir_x = player.dir_x * cos(rot_speed) - player.dir_y * sin(rot_speed);
-      player.dir_y = old_dir_x * sin(rot_speed) + player.dir_y * cos(rot_speed);
-      double old_plane_x = player.plane_x;
-      player.plane_x = player.plane_x * cos(rot_speed) - player.plane_y * sin(rot_speed);
-      player.plane_y = old_plane_x * sin(rot_speed) + player.plane_y * cos(rot_speed);
+      rot_speed = ROT_SPEED * delta;
+      old_dir_x = player.dir.x;
+      player.dir.x = player.dir.x * cos(-rot_speed) - player.dir.y * sin(-rot_speed);
+      player.dir.y = old_dir_x * sin(-rot_speed) + player.dir.y * cos(-rot_speed);
+      old_plane_x = player.plane.x;
+      player.plane.x = player.plane.x * cos(-rot_speed) - player.plane.y * sin(-rot_speed);
+      player.plane.y = old_plane_x * sin(-rot_speed) + player.plane.y * cos(-rot_speed);
+    } else if (p_left) {
+      rot_speed = ROT_SPEED * delta;
+      old_dir_x = player.dir.x;
+      player.dir.x = player.dir.x * cos(rot_speed) - player.dir.y * sin(rot_speed);
+      player.dir.y = old_dir_x * sin(rot_speed) + player.dir.y * cos(rot_speed);
+      old_plane_x = player.plane.x;
+      player.plane.x = player.plane.x * cos(rot_speed) - player.plane.y * sin(rot_speed);
+      player.plane.y = old_plane_x * sin(rot_speed) + player.plane.y * cos(rot_speed);
     }
 
     // Update gun
@@ -638,8 +604,8 @@ void loopGamePlay() {
     renderMap(sto_level_1, abs(player.velocity) * MOV_SPEED_INV);
     renderEntities();
     renderGun(gun_pos, abs(player.velocity) * MOV_SPEED_INV);
-    renderFps();
-
+    renderStats();
+    
     // flash screen
     if (flash_screen > 0) {
       invert_screen = !invert_screen;

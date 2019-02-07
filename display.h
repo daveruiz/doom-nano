@@ -1,3 +1,6 @@
+#ifndef doom_display_h
+#define doom_display_h
+
 #include <Wire.h>
 #include <Adafruit_SSD1306.h>
 
@@ -6,30 +9,46 @@
 #define SCREEN_WIDTH        128
 #define SCREEN_HEIGHT       64
 #define HALF_WIDTH          64
+#define RENDER_HEIGHT       56          // raycaster working height (rest is for hud)
 #define HALF_HEIGHT         32
 #define OLED_RESET          -1          // Reset pin # (or -1 if sharing Arduino reset pin)
 
 // GFX settings
 #define FRAME_TIME          66.666666   // Desired time per frame in ms (66.666666 is ~15 fps)
-#define RES_DIVIDER         2           // Hgher values will result in lower horizontal resolution when raasterize and lower process and memory usage
+#define RES_DIVIDER         2           // Hgher values will result in lower horizontal resolution when rasterize and lower process and memory usage
                                         // Lower will require more process and memory, but looks nicer
-#define Z_RES_DIVIDER       8           // Zbuffer resolution divider. We sacrifice resolution to save memory
+#define Z_RES_DIVIDER       4           // Zbuffer resolution divider. We sacrifice resolution to save memory
+#define DISTANCE_MULTIPLIER 10          // Distances are stored as uint8_t, mutiplying the distance we can obtain more precision taking care
+                                        // of keep numbers inside the type range
 #define MAX_RENDER_DEPTH    12
 #define MAX_SPRITE_DEPTH    8
 #define MELT_SPEED          6
 #define ZBUFFER_SIZE        SCREEN_WIDTH / Z_RES_DIVIDER
-#define DISTANCE_MULTIPLIER   10        // same than main file
+
+// Optimizations
+#define MELT_OFFSETS        F("1234543234323454343456754321234321234543456543212345432123432123432345676")
+
+// Reads a char from an F() string
+#define F_char(ifsh, ch)    pgm_read_byte(reinterpret_cast<PGM_P>(ifsh) + ch)
+
+// This is slightly faster than bitRead (also bits are read from left to right)
+const static uint8_t PROGMEM bit_mask[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
+#define read_bit(b, n) b & pgm_read_byte(bit_mask + n) ? 1 : 0
 
 void setupDisplay();
 void fps();
 bool getMeltedPixel(uint8_t x, uint8_t y);
-bool getGradientPixel(uint8_t x, uint8_t y, uint8_t i);
 void meltScreen();
+bool getGradientPixel(uint8_t x, uint8_t y, uint8_t i);
 void drawByte(uint8_t x, uint8_t y, uint8_t b);
-void drawPixel(int8_t x, int8_t y, boolean color);
+uint8_t getByte(uint8_t x, uint8_t y);
+void drawPixel(int8_t x, int8_t y, bool color, bool raycasterViewport);
 void drawVLine(int8_t x, int8_t start_y, int8_t end_y, uint8_t intensity);
 void drawSprite(int8_t x, int8_t y, const uint8_t bitmap[], const uint8_t mask[], int16_t w, int16_t h, uint8_t sprite, double distance);
 void drawBitmap(int8_t x, int8_t y, const uint8_t bitmap[], int16_t w, int16_t h, uint8_t brightness);
+void drawChar(int8_t x, int8_t y, char ch);
+void drawText(int8_t x, int8_t y, char *txt, uint8_t space = 1);
+void drawText(int8_t x, int8_t y, __FlashStringHelper txt, uint8_t space = 1);
 
 // Initalize screen. Following line is for OLED 128x64 connected by I2C
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
@@ -37,10 +56,6 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 // FPS control 
 double delta = 1;
 double lastFrameTime = 0;
-
-// For optimizations
-const static char PROGMEM melt_offsets[] = "1234543234323454343456754321234321234543456543212345432123432123432345676";
-const static uint8_t PROGMEM bit_mask[8] = { B10000000, B01000000, B00100000, B00010000, B00001000, B00000100, B00000010, B00000001 };
 
 #ifdef OPTIMIZE_SSD1306
 // Optimizations for SSD1306 handles buffer directly
@@ -83,7 +98,7 @@ double getActualFps() {
 // Helper for melting screen. Picks the relative pixel after melt effect
 // Similar to adafruit::getPixel but removed some checks to make it faster. 
 bool getMeltedPixel(uint8_t frame, uint8_t x, uint8_t y) {
-  uint8_t offset = pgm_read_byte(melt_offsets + x%64) - 48; // get "random:" numbers from 0 - 9
+  uint8_t offset = F_char(MELT_OFFSETS, x%64) - 48; // get "random:" numbers from 0 - 9
   int8_t dy = frame < offset ? y : y - MELT_SPEED;
   
   // Return black
@@ -151,18 +166,18 @@ boolean getGradientPixel(uint8_t x, uint8_t y, uint8_t i) {
     + x / gradient_height % gradient_width;                                         // x byte offset
 
   // return the bit based on x
-  return pgm_read_byte_near(gradient + index) & pgm_read_byte(bit_mask + x % 8) ? 1 : 0;  
+  return read_bit(pgm_read_byte(gradient + index), x % 8);
 }
 
-// Faster drawPixel than display.drawPixel
-// Avoids some checks to make it faster
-void drawPixel(int8_t x, int8_t y, boolean color) {
-  #ifdef OPTIMIZE_SSD1306
+// Faster drawPixel than display.drawPixel.
+// Avoids some checks to make it faster.
+void drawPixel(int8_t x, int8_t y, bool color, bool raycasterViewport = false) {
   // prevent write out of screen buffer
-  if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= SCREEN_HEIGHT) {
+  if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= (raycasterViewport ? RENDER_HEIGHT : SCREEN_HEIGHT)) {
     return;
   }
   
+  #ifdef OPTIMIZE_SSD1306
   if (color) {
     // white
     display_buf[x + (y/8)*SCREEN_WIDTH] |= (1 << (y&7));
@@ -175,18 +190,21 @@ void drawPixel(int8_t x, int8_t y, boolean color) {
   #endif
 }
 
+// For raycaster only
 // Custom draw Vertical lines that fills with a pattern to simulate
 // different brightness. Affected by RES_DIVIDER
 void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity) {
   int8_t y;
   int8_t lower_y = max(min(start_y, end_y), 0);
-  int8_t higher_y = min(max(start_y, end_y), SCREEN_HEIGHT);
+  int8_t higher_y = min(max(start_y, end_y), RENDER_HEIGHT - 1);
+  uint8_t c;
 
   #ifdef OPTIMIZE_SSD1306
   uint8_t bp;
-  for (uint8_t c=0; c<RES_DIVIDER; c++) {
+  uint8_t b;
+  for (c=0; c<RES_DIVIDER; c++) {
     y = lower_y;
-    uint8_t b = 0;
+    b = 0;
     while (y <= higher_y) {
       bp = y % 8;
       b = b | getGradientPixel(x+c, y, intensity) << bp;
@@ -208,10 +226,10 @@ void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity) {
   #else
   y = lower_y;
   while (y <= higher_y) {
-    for (uint8_t c=0; c<RES_DIVIDER; c++) {
+    for (c=0; c<RES_DIVIDER; c++) {
       // bypass black pixels
       if (getGradientPixel(x+c, y, intensity)) {
-        drawPixel(x+c, y, 1);
+        drawPixel(x+c, y, 1, true);
       }
     }
     
@@ -239,13 +257,13 @@ void drawSprite(
 
   // Don't draw if the sprite is hidden by z buffer
   // Not checked per pixer for performance reasons
-  if (zbuffer[int((double) min(max(x, 0), ZBUFFER_SIZE - 1) / Z_RES_DIVIDER)] < distance * DISTANCE_MULTIPLIER) {
+  if (zbuffer[min(max(x, 0), ZBUFFER_SIZE - 1) / Z_RES_DIVIDER] < distance * DISTANCE_MULTIPLIER) {
     return;
   }
 
   for (uint8_t ty=0; ty<th; ty+=pixel_size) {
     // Don't draw out of screen
-    if (y + ty < 0 || y + ty >= SCREEN_HEIGHT) {
+    if (y + ty < 0 || y + ty >= RENDER_HEIGHT) {
       continue;
     }
 
@@ -260,13 +278,13 @@ void drawSprite(
         continue;
       }
 
-      pixel = pgm_read_byte(bitmap + byte_offset) & pgm_read_byte(bit_mask + sx % 8) ? 1 : 0;
-      maskPixel = pgm_read_byte(mask + byte_offset) & pgm_read_byte(bit_mask + sx % 8) ? 1 : 0;
+      pixel = read_bit(pgm_read_byte(bitmap + byte_offset), sx % 8);
+      maskPixel = read_bit(pgm_read_byte(mask + byte_offset), sx % 8);
       
       if (maskPixel) {
         for (uint8_t ox=0; ox<pixel_size; ox++) {
           for (uint8_t oy=0; oy<pixel_size; oy++) {
-            drawPixel(x + tx + ox, y + ty + oy, pixel);
+            drawPixel(x + tx + ox, y + ty + oy, pixel, true);
           }
         }
       }
@@ -285,8 +303,66 @@ void drawBitmap(int8_t x, int8_t y,
   for(int16_t j=0; j<h; j++, y++) {
       for(int16_t i=0; i<w; i++) {
           if(i & 7) dot <<= 1;
-          else      dot   = pgm_read_byte_near(&bitmap[j * byteWidth + i / 8]);
+          else      dot   = pgm_read_byte(&bitmap[j * byteWidth + i / 8]);
           if(dot & 0x80) drawPixel(x+i, y, getGradientPixel(j, i, brightness));
       }
   }
 }
+
+// Draw a single character. 
+// Made for a custom font with some useful sprites. Char size 4 x 6
+// Uses less memory than display.print()
+void drawChar(int8_t x, int8_t y, char ch) {
+  uint8_t c = 0;
+  uint8_t n;
+  uint8_t bOffset;
+  uint8_t b;
+  uint8_t line = 0;
+  
+  // Find the character
+  while (CHAR_MAP[c] != ch && CHAR_MAP[c] != '\0') c++;
+
+  bOffset = c / 2;   
+  for (;line<CHAR_HEIGHT; line++) {
+    b = pgm_read_byte(bmp_font + (line * bmp_font_width + bOffset));
+    for (n=0; n<CHAR_WIDTH; n++) 
+      if (read_bit(b, (c%2==0?0:4) + n)) 
+        drawPixel(x+n, y+line, 1, false);
+  }
+}
+
+// Draw a string
+void drawText(int8_t x, int8_t y, char *txt, uint8_t space = 1) {
+  uint8_t pos = x;
+  uint8_t i = 0;
+  char ch;
+  while ((ch = txt[i]) != '\0') {
+    drawChar(pos, y, ch);
+    i++;
+    pos += CHAR_WIDTH + space;
+
+    // shortcut on end of screen
+    if (pos > SCREEN_WIDTH) return;
+  }
+}
+
+// Draw a F() string
+void drawText(int8_t x, int8_t y, const __FlashStringHelper *txt_p, uint8_t space = 1) {
+  uint8_t pos = x;
+  uint8_t i = 0;
+  char ch;
+  while (pos < SCREEN_WIDTH && (ch = F_char(txt_p, i)) != '\0') {
+    drawChar(pos, y, ch);
+    i++;
+    pos += CHAR_WIDTH + space;
+  }
+}
+
+// Draw an integer (3 digit max!)
+void drawText(int8_t x, int8_t y, int num) {
+  char buf[4]; // 3 char + \0
+  itoa(num, buf, 10);
+  drawText(x, y, buf);
+}
+
+#endif

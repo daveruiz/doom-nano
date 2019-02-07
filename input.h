@@ -1,3 +1,6 @@
+#ifndef doom_input_h
+#define doom_input_h
+
 // Key pinout
 #define K_LEFT      6
 #define K_RIGHT     7
@@ -45,3 +48,5 @@ void readInput() {
   Serial.println();
   */
 }
+
+#endif
