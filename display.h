@@ -17,23 +17,25 @@
 #define FRAME_TIME          66.666666   // Desired time per frame in ms (66.666666 is ~15 fps)
 #define RES_DIVIDER         2           // Hgher values will result in lower horizontal resolution when rasterize and lower process and memory usage
                                         // Lower will require more process and memory, but looks nicer
-#define Z_RES_DIVIDER       4           // Zbuffer resolution divider. We sacrifice resolution to save memory
-#define DISTANCE_MULTIPLIER 10          // Distances are stored as uint8_t, mutiplying the distance we can obtain more precision taking care
-                                        // of keep numbers inside the type range
+#define Z_RES_DIVIDER       2           // Zbuffer resolution divider. We sacrifice resolution to save memory
+#define DISTANCE_MULTIPLIER 20          // Distances are stored as uint8_t, mutiplying the distance we can obtain more precision taking care
+                                        // of keep numbers inside the type range. Max is 256 / MAX_RENDER_DEPTH 
 #define MAX_RENDER_DEPTH    12
 #define MAX_SPRITE_DEPTH    8
 #define MELT_SPEED          6
+
 #define ZBUFFER_SIZE        SCREEN_WIDTH / Z_RES_DIVIDER
 
 // Optimizations
-#define MELT_OFFSETS        F("1234543234323454343456754321234321234543456543212345432123432123432345676")
+#define MELT_OFFSETS_SIZE   64
+#define MELT_OFFSETS        F("1234543234323454343456754321234321234543456543131123123123125676534543312")
 
 // Reads a char from an F() string
 #define F_char(ifsh, ch)    pgm_read_byte(reinterpret_cast<PGM_P>(ifsh) + ch)
 
 // This is slightly faster than bitRead (also bits are read from left to right)
 const static uint8_t PROGMEM bit_mask[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
-#define read_bit(b, n) b & pgm_read_byte(bit_mask + n) ? 1 : 0
+#define read_bit(b, n)      b & pgm_read_byte(bit_mask + n) ? 1 : 0
 
 void setupDisplay();
 void fps();
@@ -98,7 +100,7 @@ double getActualFps() {
 // Helper for melting screen. Picks the relative pixel after melt effect
 // Similar to adafruit::getPixel but removed some checks to make it faster. 
 bool getMeltedPixel(uint8_t frame, uint8_t x, uint8_t y) {
-  uint8_t offset = F_char(MELT_OFFSETS, x%64) - 48; // get "random:" numbers from 0 - 9
+  uint8_t offset = F_char(MELT_OFFSETS, x%MELT_OFFSETS_SIZE) - 48; // get "random:" numbers from 0 - 9
   int8_t dy = frame < offset ? y : y - MELT_SPEED;
   
   // Return black

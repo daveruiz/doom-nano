@@ -13,8 +13,10 @@
 #define E_DOOR        B0100   // D
 #define E_LOCKEDDOOR  B0101   // L
 #define E_EXIT        B0111   // X
+// collectable entities
 #define E_MEDIKIT     B1000   // M
 #define E_KEY         B1001   // K
+#define E_FIREBALL    B1010   // not in map
 
 /*
 Based on E1M1 from Wolfenstein 3D

@@ -33,20 +33,6 @@ void readInput() {
   p_up = digitalRead(K_UP) == HIGH;
   p_down = digitalRead(K_DOWN) == HIGH;
   p_fire = digitalRead(K_FIRE) == HIGH;
-
-  // For debugging
-  /*
-  Serial.print(p_left);
-  Serial.print(" - ");
-  Serial.print(p_right);
-  Serial.print(" - ");
-  Serial.print(p_up);
-  Serial.print(" - ");
-  Serial.print(p_down);
-  Serial.print(" - ");
-  Serial.print(p_fire);
-  Serial.println();
-  */
 }
 
 #endif

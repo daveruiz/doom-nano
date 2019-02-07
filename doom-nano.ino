@@ -14,24 +14,39 @@
 #define GUN_SHOT_POS          GUN_TARGET_POS + 4
 #define ROT_SPEED             .12
 #define MOV_SPEED             .2
-#define MOV_SPEED_INV         5         // 1 / MOV_SPEED
+#define MOV_SPEED_INV         5           // 1 / MOV_SPEED
 #define JOGGING_SPEED         .005
+#define ENEMY_SPEED           .02
+#define FIREWALL_SPEED        .08
 
-#define MAX_ENTITIES          6
+#define MAX_ENTITIES          8
 #define MAX_DOZED_ENTITIES    28
 
-#define MAX_ENTITY_DISTANCE   80        // * DISTANCE_MULTIPLIER
-#define MAX_ENEMY_VIEW        60        // * DISTANCE_MULTIPLIER
-#define ITEM_COLLIDER_RAD     3         // * DISTANCE_MULTIPLIER
-#define ENEMY_COLLIDER_RAD    3         // * DISTANCE_MULTIPLIER
+#define MAX_ENTITY_DISTANCE   200         // * DISTANCE_MULTIPLIER
+#define MAX_ENEMY_VIEW        80          // * DISTANCE_MULTIPLIER
+#define ITEM_COLLIDER_DIST    6           // * DISTANCE_MULTIPLIER
+#define ENEMY_COLLIDER_DIST   4           // * DISTANCE_MULTIPLIER
+#define ENEMY_MELEE_DIST      6           // * DISTANCE_MULTIPLIER
+
+#define ENEMY_MELEE_DAMAGE    10
+#define ENEMY_FIREBALL_DAMAGE 20
 
 // entity status
 #define S_STAND               0
 #define S_ALERT               1
 #define S_FIRING              2
-#define S_HIDDEN              3
+#define S_MELEE               3
+#define S_HIT                 4
+#define S_DIED                5
+#define S_HIDDEN              6
 
-#define swap(a, b) do { typeof(a) temp = a; a = b; b = temp; } while (0)
+// useful macros
+#define swap(a, b)            do { typeof(a) temp = a; a = b; b = temp; } while (0)
+#define sign(a, b)            (double) (a > b ? 1 : (b > a ? -1 : 0))
+#define dist(pos_a, pos_b)    sqrt(sq(pos_a.x - pos_b.x) + sq(pos_a.y - pos_b.y)) * DISTANCE_MULTIPLIER
+#define dist_p(pos_p_a, pos_b)  sqrt(sq(pos_p_a->x - pos_b.x) + sq(pos_p_a->y - pos_b.y)) * DISTANCE_MULTIPLIER
+#define isSpawnable(block)    block == E_ENEMY || block & 0b00001000 /* all collectable items */ 
+#define isCollider(block)     block == E_WALL                      
 
 struct Coords {
   double x;
@@ -52,8 +67,9 @@ struct Entity {
   uint16_t uid;
   Coords pos;
   uint8_t state;
-  uint8_t health;
+  uint8_t health;     // angle for fireballs
   uint8_t distance;
+  uint8_t timer;
 };
 
 // Static entities
@@ -135,34 +151,42 @@ void spawnEntity(uint16_t uid, uint8_t x, uint8_t y) {
   
   uint8_t type = getTypeFromUID(uid);
 
-  // todo: read sleeping status
+  // todo: read dozed entity status
 
   switch (type) {
     case E_ENEMY: 
       if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = { uid, { .5 + x, .5 + y }, S_STAND, 20 };
+        entity[num_entities] = { uid, { .5 + x, .5 + y }, S_STAND, 20, 0 };
         num_entities++;
       }
       break;
 
     case E_KEY: 
       if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = { uid, { .5 + x, .5 + y }, S_STAND, 0 };
+        entity[num_entities] = { uid, { .5 + x, .5 + y }, S_STAND, 0, 0 };
         num_entities++;
       }
       break;
 
     case E_MEDIKIT:
       if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = { uid, { .5 + x, .5 + y }, S_STAND, 0 };
+        entity[num_entities] = { uid, { .5 + x, .5 + y }, S_STAND, 0, 0 };
         num_entities++;
       }
       break;     
   }  
 }
 
-uint8_t getDistance(Coords pos_a, Coords pos_b) {
-  return sqrt(sq(pos_a.x - pos_b.x) + sq(pos_a.y - pos_b.y)) * DISTANCE_MULTIPLIER;
+void spawnFireball(double x, double y) {
+  // Limit the number of spawned entities
+  if (num_entities >= MAX_ENTITIES) {
+    return;
+  }
+
+  // calculate direction
+  uint8_t dir = 0;
+  entity[num_entities] = { getEntityUID(E_FIREBALL, int(x), int(y)), { x, y }, S_STAND, dir, 0 };
+  num_entities++;
 }
 
 void removeEntity(uint16_t uid) {
@@ -201,11 +225,60 @@ bool isDozed(uint16_t uid) {
   return false;
 }
 
+bool detectCollision(Coords *pos, double relative_x, double relative_y) {
+  uint8_t type;
+  uint16_t distance;
+  uint8_t i = 0;
+  
+  // Wall collision
+  uint8_t block = getBlockAt(sto_level_1, player.pos.x + relative_x, player.pos.y + relative_y);
+  if (block == E_WALL) {
+    return true;
+  }
+
+  // Entity collision
+  for (; i<num_entities; i++) {
+    // Don't collide with itself
+    if (&(entity[i].pos) == pos) {
+      continue;
+    }
+    
+    type = getTypeFromUID(entity[i].uid);
+
+    // Only enemy collision
+    if (type != E_ENEMY) {
+      continue;
+    }
+
+    Coords new_coords = { entity[i].pos.x - relative_x, entity[i].pos.y - relative_y };
+    distance = dist_p(pos, new_coords);
+
+    // Check distance and if it´s getting closer
+    if (distance < ENEMY_COLLIDER_DIST && distance < entity[i].distance) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Update coords if possible. Return if collided
+bool updatePosition(Coords *pos, double relative_x, double relative_y) {
+  bool collide_x = detectCollision(pos, relative_x, 0);
+  bool collide_y = detectCollision(pos, 0, relative_y);
+  
+  if (!collide_x) pos->x += relative_x;
+  if (!collide_y) pos->y += relative_y;
+
+  return collide_x || collide_y;
+}
+
 void updateEntities() {  
   uint8_t i = 0;
   while(i<num_entities) {
     // update distance
-    entity[i].distance = getDistance(player.pos, entity[i].pos);
+    entity[i].distance = dist(player.pos, entity[i].pos);
+    if (entity[i].timer > 0) entity[i].timer--;
 
     // too far away. put it in doze mode
     if (entity[i].distance > MAX_ENTITY_DISTANCE) {
@@ -224,14 +297,86 @@ void updateEntities() {
    
     switch (type) {
       case E_ENEMY: {
-        if (entity[i].distance < MAX_ENEMY_VIEW) {
-          // move towards to the player. todo
+        // Enemy "IA"
+        if (entity[i].state == S_HIT) {
+          if (entity[i].timer == 0) {
+            // Back to alert state
+            entity[i].state = S_ALERT;
+            entity[i].timer = 20;     // delay next fireball thrown
+          }
+        } else if (entity[i].state == S_FIRING) {
+          if (entity[i].timer == 0) {
+            // Back to alert state
+            entity[i].state = S_ALERT;
+            entity[i].timer = 20;     // delay next fireball throwm
+          }
+        } else {
+          // ALERT STATE
+          if (entity[i].distance > ENEMY_MELEE_DIST && entity[i].distance < MAX_ENEMY_VIEW) {
+            if (entity[i].state != S_ALERT) {
+              entity[i].state = S_ALERT;
+              entity[i].timer = 20;   // used to throw fireballs
+            } else {
+              if (entity[i].timer == 0) {
+                // Throw a fireball
+                spawnFireball(entity[i].pos.x, entity[i].pos.y);
+                entity[i].state = S_FIRING;
+                entity[i].timer = 6; 
+              } else {
+                // move towards to the player.
+                updatePosition(
+                  &(entity[i].pos), 
+                  sign(player.pos.x, entity[i].pos.x) * ENEMY_SPEED * delta,
+                  sign(player.pos.y, entity[i].pos.y) * ENEMY_SPEED * delta
+                );
+              }
+            }
+          } else if (entity[i].distance <= ENEMY_MELEE_DIST) {
+            if (entity[i].state != S_MELEE) {
+              // Preparing the melee attack
+              entity[i].state = S_MELEE;
+              entity[i].timer = 10;
+            } else if (entity[i].timer == 0) {
+              // Melee attack
+              player.health = max(0, player.health - ENEMY_MELEE_DAMAGE);
+              entity[i].timer = 14;
+              flash_screen = 1;
+              updateHud();
+            }
+          } else {
+            // stand
+            entity[i].state = S_STAND;
+          }
         }
         break;
       }
 
+      case E_FIREBALL: {
+        if (entity[i].distance < 2) {
+          // Hit the player and disappear
+          player.health = max(0, player.health - ENEMY_FIREBALL_DAMAGE);
+          flash_screen = 1;
+          updateHud();
+          removeEntity(entity[i].uid);
+          continue; // continue in the loop
+        } else {
+          // Move 
+          // Note: using health to store the angle of the movement
+          bool collided = updatePosition(
+            &(entity[i].pos), 
+            cos(entity[i].health / 4 * PI) * FIREWALL_SPEED,
+            sin(entity[i].health / 4 * PI) * FIREWALL_SPEED
+          );
+
+          if (collided) {
+            removeEntity(entity[i].uid);
+            continue; // continue in the loop
+          }
+        }
+      }
+
       case E_MEDIKIT: {
-        if (entity[i].distance < ITEM_COLLIDER_RAD) {
+        if (entity[i].distance < ITEM_COLLIDER_DIST) {
           // pickup
           entity[i].state = S_HIDDEN;
           player.health = min(100, player.health + 50);
@@ -242,7 +387,7 @@ void updateEntities() {
       }
 
       case E_KEY: {
-        if (entity[i].distance < ITEM_COLLIDER_RAD) {
+        if (entity[i].distance < ITEM_COLLIDER_DIST) {
           // pickup
           entity[i].state = S_HIDDEN;
           player.keys++;
@@ -280,6 +425,7 @@ void renderMap(const uint8_t level[], double amount_jogging) {
     ray_y = player.dir.y + player.plane.y * camera_x;
     map_x = uint8_t(player.pos.x);
     map_y = uint8_t(player.pos.y);
+    Coords map_coords = { map_x, map_y };
     delta_x = abs(1 / ray_x);
     delta_y = abs(1 / ray_y);
 
@@ -315,15 +461,15 @@ void renderMap(const uint8_t level[], double amount_jogging) {
 
       block = getBlockAt(level, map_x, map_y);
 
-      if (block == E_WALL) {
+      if (isCollider(block)) {
           hit = 1;
       } else {
         // Spawning entities here, as soon they are visible for the
         // player. Not the best place, but would be a very performance
         // cost scan for them in another loop
-        if (block == E_ENEMY || block & 0b00001000) {
+        if (isSpawnable(block)) {
           // Check that it's close to the player
-          if (getDistance(player.pos, { map_x, map_y }) < MAX_ENTITY_DISTANCE) {
+          if (dist(player.pos, map_coords) < MAX_ENTITY_DISTANCE) {
             uid = getEntityUID(block, map_x, map_y);
             if (!isSpawned(uid)) {
               spawnEntity(uid, map_x, map_y);
@@ -412,7 +558,27 @@ void renderEntities() {
     }
     
     switch(type) {
-      case E_ENEMY:
+      case E_ENEMY: {
+        uint8_t sprite;
+        if (entity[i].state == S_ALERT) {
+          // walking
+          sprite = int(millis() / 500) % 2;
+        } else if (entity[i].state == S_FIRING) {
+          // fireball
+          sprite = 2;
+        } else if (entity[i].state == S_FIRING) {
+          // hit
+          sprite = 3;
+        } else if (entity[i].state == S_MELEE) {
+          // melee atack
+          sprite = entity[i].timer > 10 ? 2 : 1;
+        } else if (entity[i].state == S_DIED) {
+          // dying
+          sprite = entity[i].timer > 0 ? 3 : 4;
+        } else {
+          // stand
+          sprite = 0;  
+        }
         drawSprite(
           sprite_screen_x - BMP_IMP_WIDTH * .5 / transform_y, 
           RENDER_HEIGHT / 2 - 8 / transform_y, 
@@ -420,12 +586,24 @@ void renderEntities() {
           bmp_imp_mask, 
           BMP_IMP_WIDTH, 
           BMP_IMP_HEIGHT, 
-          int(millis() / 500) % 2, 
+          sprite, 
           transform_y
         );
         break;
+      }
 
-      case E_MEDIKIT:
+      case E_FIREBALL: {
+        // todo: print an actual sprite
+        display.drawCircle(
+          sprite_screen_x,
+          RENDER_HEIGHT / 2, 
+          60 / transform_y,
+          1
+        );
+        break;
+      }
+
+      case E_MEDIKIT: {
         drawSprite(
           sprite_screen_x - BMP_ITEMS_WIDTH * .5 / transform_y, 
           RENDER_HEIGHT / 2 + 5 / transform_y, 
@@ -437,8 +615,9 @@ void renderEntities() {
           transform_y
         );
         break;
+      }
 
-      case E_KEY:
+      case E_KEY: {
         drawSprite(
           sprite_screen_x - BMP_ITEMS_WIDTH * .5 / transform_y, 
           RENDER_HEIGHT / 2 + 5 / transform_y, 
@@ -450,6 +629,7 @@ void renderEntities() {
           transform_y
         );
         break;
+      }
     } 
   }
 }
@@ -487,12 +667,15 @@ void updateHud() {
   drawText(50, 58, player.keys);   
 }
 
+// Debug stats
 void renderStats() {
-  display.fillRect(88, 58, 38, 6, 0);
+  display.fillRect(58, 58, 70, 6, 0);
   drawText(114, 58, int(getActualFps()));
-  drawText(88, 58, freeMemory());
+  drawText(94, 58, freeMemory());
+  drawText(82, 58, num_entities);
 }
 
+// Intro screen
 void loopIntro() {
   // fade in effect
   for (uint8_t i=0; i<8; i++) {
@@ -517,35 +700,6 @@ void loopIntro() {
     readInput(); 
     if (p_fire) jumpTo(GAME_PLAY);
   } while(!exit_scene);
-}
-
-bool detectPlayerCollision(double relative_x, double relative_y) {
-  uint8_t type;
-  uint16_t distance;
-  uint8_t i = 0;
-  
-  // Wall collision
-  if (getBlockAt(sto_level_1, player.pos.x + relative_x, player.pos.y + relative_y) == E_WALL) {
-    return true;
-  }
-
-  for (; i<num_entities; i++) {
-    type = getTypeFromUID(entity[i].uid);
-
-    if (type == E_MEDIKIT || type == E_KEY) {
-      // we don´t collide with those entities
-      continue;
-    }
-
-    distance = getDistance(player.pos, { entity[i].pos.x - relative_x, entity[i].pos.y - relative_y });
-
-    // Check distance and if it´s getting closer
-    if (distance < ENEMY_COLLIDER_RAD && distance < entity[i].distance) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 void loopGamePlay() {
@@ -576,11 +730,11 @@ void loopGamePlay() {
 
     // Collision
     if (abs(player.velocity) > 0.003) {
-      if (!detectPlayerCollision(player.dir.x * player.velocity * 2, 0)) 
-        player.pos.x += player.dir.x * player.velocity * delta;
-      if (!detectPlayerCollision(0, player.dir.y * player.velocity * 2)) 
-        player.pos.y += player.dir.y * player.velocity * delta;
-        
+      updatePosition(
+        &(player.pos), 
+        player.dir.x * player.velocity * delta, 
+        player.dir.y * player.velocity * delta
+      );
     } else {
       player.velocity = 0;
     }
