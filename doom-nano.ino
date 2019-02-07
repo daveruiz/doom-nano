@@ -31,6 +31,8 @@
 #define S_FIRING              2
 #define S_HIDDEN              3
 
+#define swap(a, b) do { typeof(a) temp = a; a = b; b = temp; } while (0)
+
 struct Coords {
   double x;
   double y;
@@ -356,8 +358,30 @@ void renderMap(const uint8_t level[], double amount_jogging) {
   }
 }
 
+// Sort entities from far to close
+uint8_t sortEntities() {
+  uint8_t gap = num_entities;
+  bool swapped = false;
+  while(gap > 1 || swapped) {
+    //shrink factor 1.3
+    gap = (gap * 10) / 13;
+    if(gap == 9 || gap == 10) gap = 11;
+    if (gap < 1) gap = 1;
+    swapped = false;
+    for(uint8_t i = 0; i < num_entities - gap; i++)
+    {
+      uint8_t j = i + gap;
+      if(entity[i].distance < entity[j].distance)
+      {
+        swap(entity[i], entity[j]);
+        swapped = true;
+      }
+    }
+  }
+}
+
 void renderEntities() {  
-  // todo: sort sprites from far to close
+  sortEntities();
   
   for (uint8_t i=0; i<num_entities; i++) {
     if (entity[i].state == S_HIDDEN) continue;
@@ -466,7 +490,7 @@ void updateHud() {
 void renderStats() {
   display.fillRect(88, 58, 38, 6, 0);
   drawText(114, 58, int(getActualFps()));
-  // drawText(88, 58, freeMemory());
+  drawText(88, 58, freeMemory());
 }
 
 void loopIntro() {
