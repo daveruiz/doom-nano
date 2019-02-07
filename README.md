@@ -25,13 +25,14 @@ Resources:
 
 To do:
 - ~~Make z-buffer work~~
+- ~~Make work picking up medikits and keys~~
+- Some UI
 - Build some basic IA for enemies
 - Make possible kill enemies
-- ~~Make work picking up medikits and keys~~
 - Doors and locked doors
 - A game over screen
 - Textures? Very performance expensive. I don't think so.
-- Music? 
+- Sound/Music? 
 
 More screens:
 ![](/screen-2.jpg?raw=true)
