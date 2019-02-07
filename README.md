@@ -26,7 +26,7 @@ Resources:
 To do:
 - ~~Make z-buffer work~~
 - ~~Make work picking up medikits and keys~~
-- Some UI
+- ~~Some UI~~
 - Build some basic IA for enemies
 - Make possible kill enemies
 - Doors and locked doors
