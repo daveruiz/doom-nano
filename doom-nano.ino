@@ -7,7 +7,6 @@
 // scenes
 #define INTRO                 0
 #define GAME_PLAY             1
-#define GAME_OVER             2
 
 // game
 #define GUN_TARGET_POS        18
@@ -85,7 +84,7 @@ struct DozedEntity {
 };
 
 // general
-uint8_t scene = GAME_PLAY; // INTRO;
+uint8_t scene = INTRO;
 bool exit_scene = false;
 bool invert_screen = false;
 uint8_t flash_screen = 0;
@@ -524,7 +523,7 @@ void renderMap(const uint8_t level[], double view_height) {
         x,
         view_height / distance - line_height / 2 + RENDER_HEIGHT / 2, 
         view_height / distance + line_height / 2 + RENDER_HEIGHT / 2, 
-        gradient_count - int(distance / MAX_RENDER_DEPTH * gradient_count) - side * 2
+        GRADIENT_COUNT - int(distance / MAX_RENDER_DEPTH * GRADIENT_COUNT) - side * 2
       );
     }
   }
@@ -707,8 +706,8 @@ void updateHud() {
 void renderStats() {
   display.fillRect(58, 58, 70, 6, 0);
   drawText(114, 58, int(getActualFps()));
+  drawText(82, 58, num_entities);
   // drawText(94, 58, freeMemory());
-  // drawText(82, 58, num_entities);
 }
 
 // Intro screen
@@ -778,8 +777,9 @@ void loopGamePlay() {
     // Clear only the 3d view
     display.fillRect(0, 0, SCREEN_WIDTH, RENDER_HEIGHT, 0);
 
-    // Player speed
+    // If the player is alive
     if (player.health > 0) {
+      // Player speed
       if (p_up) {
         player.velocity += (MOV_SPEED - player.velocity) * .4;
         jogging = abs(player.velocity) * MOV_SPEED_INV;
@@ -831,7 +831,9 @@ void loopGamePlay() {
     } else {
       // The player is dead
       if (view_height > -10) view_height--;
-      if (gun_pos > 0) gun_pos--;
+      else if (p_fire) jumpTo(INTRO);
+      
+      if (gun_pos > 1) gun_pos -= 2;
     }
 
     // Player movement
@@ -873,15 +875,10 @@ void loopGamePlay() {
   } while (!exit_scene);
 }
 
-void loopGameOver() {
-   jumpTo(INTRO);    
-}
-
 void loop(void) {  
   switch(scene) {
-    // case INTRO: { loopIntro(); break; }
+    case INTRO: { loopIntro(); break; }
     case GAME_PLAY: { loopGamePlay(); break; }
-    case GAME_OVER: { loopGameOver(); break; }
   }
 
   exit_scene = false;

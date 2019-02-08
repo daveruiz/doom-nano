@@ -161,11 +161,11 @@ void meltScreen() {
 
 boolean getGradientPixel(uint8_t x, uint8_t y, uint8_t i) {
   if (i <= 0) return 0;
-  if (i >= gradient_count - 1) return 1;
+  if (i >= GRADIENT_COUNT - 1) return 1;
 
-  uint8_t index = max(0, min(gradient_count - 1, i)) * gradient_width * gradient_height// gradient index
-    + y * gradient_width % (gradient_width * gradient_height)                       // y byte offset
-    + x / gradient_height % gradient_width;                                         // x byte offset
+  uint8_t index = max(0, min(GRADIENT_COUNT - 1, i)) * GRADIENT_WIDTH * GRADIENT_HEIGHT // gradient index
+    + y * GRADIENT_WIDTH % (GRADIENT_WIDTH * GRADIENT_HEIGHT)                           // y byte offset
+    + x / GRADIENT_HEIGHT % GRADIENT_WIDTH;                                             // x byte offset
 
   // return the bit based on x
   return read_bit(pgm_read_byte(gradient + index), x % 8);
