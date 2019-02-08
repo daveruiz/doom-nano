@@ -2,7 +2,7 @@
 #include "sprites.h"
 #include "display.h"
 #include "input.h"
-// #include <MemoryFree.h>
+#include <MemoryFree.h>
 
 // scenes
 #define INTRO                 0
@@ -84,8 +84,7 @@ struct DozedEntity {
 };
 
 // general
-//uint8_t scene = INTRO;
-uint8_t scene = GAME_PLAY;
+uint8_t scene = INTRO;
 bool exit_scene = false;
 bool invert_screen = false;
 uint8_t flash_screen = 0;
@@ -689,7 +688,7 @@ void updateHud() {
 void renderStats() {
   display.fillRect(58, 58, 70, 6, 0);
   drawText(114, 58, int(getActualFps()));
-  // drawText(94, 58, freeMemory());
+  drawText(94, 58, freeMemory());
   drawText(82, 58, num_entities);
 }
 
@@ -787,6 +786,7 @@ void loopGamePlay() {
       // ready to fire and fire pressed
       gun_pos = GUN_SHOT_POS;
       gun_fired = true;
+      // todo: fire the gun
     } else if (gun_fired && !p_fire) {
       // just fired and restored position
       gun_fired = false;
@@ -826,7 +826,7 @@ void loopGameOver() {
 
 void loop(void) {  
   switch(scene) {
-    //case INTRO: { loopIntro(); break; }
+    case INTRO: { loopIntro(); break; }
     case GAME_PLAY: { loopGamePlay(); break; }
     case GAME_OVER: { loopGameOver(); break; }
   }
