@@ -27,7 +27,7 @@
 #define MAX_ENEMY_VIEW        80          // * DISTANCE_MULTIPLIER
 #define ITEM_COLLIDER_DIST    6           // * DISTANCE_MULTIPLIER
 #define ENEMY_COLLIDER_DIST   4           // * DISTANCE_MULTIPLIER
-#define FIREBALL_COLLIDER_DIST 3          // * DISTANCE_MULTIPLIER
+#define FIREBALL_COLLIDER_DIST 2          // * DISTANCE_MULTIPLIER
 #define ENEMY_MELEE_DIST      6           // * DISTANCE_MULTIPLIER
 #define WALL_COLLIDER_DIST    .2          
 
@@ -48,10 +48,8 @@
 #define sign(a, b)            (double) (a > b ? 1 : (b > a ? -1 : 0))
 #define dist(pos_a, pos_b)    sqrt(sq(pos_a.x - pos_b.x) + sq(pos_a.y - pos_b.y)) * DISTANCE_MULTIPLIER
 #define dist_p(pos_p_a, pos_b)  sqrt(sq(pos_p_a->x - pos_b.x) + sq(pos_p_a->y - pos_b.y)) * DISTANCE_MULTIPLIER
-#define isSpawnable(block)    block == E_ENEMY || block & 0b00001000 /* all collectable items */ 
-#define isCollider(block)     block == E_WALL
-#define dec(val)              ((val) - int(val))
-#define wallRound(val)        (dec(val) < WALL_COLLIDER_DIST ? int(val) - 1 : (dec(val) > (1 - WALL_COLLIDER_DIST) ? int(val) + 1 : int(val)))
+#define isSpawnable(block)    (block == E_ENEMY || block & 0b00001000) /* all collectable items */ 
+#define isCollider(block)     (block == E_WALL)
 
 struct Coords {
   double x;
@@ -242,15 +240,16 @@ uint16_t detectCollision(Coords *pos, double relative_x, double relative_y, bool
   uint8_t i = 0;
   
   // Wall collision
-  uint8_t round_x = wallRound(player.pos.x + relative_x);
-  uint8_t round_y = wallRound(player.pos.y + relative_y);
+  uint8_t round_x = int(pos->x + relative_x);
+  uint8_t round_y = int(pos->y + relative_y);
   uint8_t block = getBlockAt(sto_level_1, round_x, round_y);
+  
   if (isCollider(block)) {
     return getEntityUID(block, round_x, round_y);
   }
 
   if (only_walls) {
-    return false;
+    return 0;
   }
 
   // Entity collision
@@ -386,11 +385,6 @@ void updateEntities() {
             sin((double) entity[i].health / FIREBALL_ANGLES * PI) * FIREBALL_SPEED,
             true
           );
-
-          Serial.print(collided);
-          Serial.print(" ");
-          Serial.print(getTypeFromUID(collided), BIN);
-          Serial.println();
 
           if (collided) {
             removeEntity(entity[i].uid);
@@ -620,10 +614,10 @@ void renderEntities() {
 
       case E_FIREBALL: {
         // Todo: draw an actual sprite
-        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 4 / transform_y, 1);
-        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 3 / transform_y, 1);
-        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 2 / transform_y, 1);
-        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 1 / transform_y, 1);
+        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 4 / transform_y, 2);
+        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 3 / transform_y, 2);
+        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 2 / transform_y, 2);
+        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 1 / transform_y, 2);
         break;
       }
 
