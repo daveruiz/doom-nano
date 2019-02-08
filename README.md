@@ -10,7 +10,7 @@ Just experimenting with an Arduino Nano I bought some time ago. This chip is ver
 Most of problems I´m facing currently are about memory. CPU clock might be a problem too, but can be more or less avoided having more memory for calculation shortcuts.
 Despite of all those limitations, I managed to make it run at 8-11 FPS with most of stuff already done. Probably can be optimized and structured much better. Will try to keep learning and improve it.
 
-To be clear. *This is not an actual Doom game*, just picked some sprites from it (and simplified a lot), But the rendering engine is more like a Wolfeistein 3D. The Doom idea came because I started building the fancy melt-screen effect, included here.
+To be clear. **This is not an actual Doom game**, just picked some sprites from it (and simplified a lot), But the rendering engine is more like a Wolfeistein 3D. The Doom idea came because I started building the fancy melt-screen effect, included here.
 
 Hardware I used:
 - Protoboard
@@ -28,7 +28,7 @@ Current status:
 - Sprites are working too, though has some issues hiding them behind walls because memory limitations (the z-buffer precision has been limited a lot to make it smalle).
 - You can move through the map, collide with walls, collect items and interact with enemies. I could also add the jogging effect, like Doom´s one.
 - The enemies IA, despite is very simple, I think works very well and it´s enough for the purpose of the game. Looks very similar to Imp enemy from original Doom.
-- Currently I´m using 99% of program memory, which doesn´t let me adds more code. I need to research how to optimize my code to make it smaller.
+- Currently I´m using 99% of program memory, which doesn´t let me adds more code. I need to research how to optimize it to make it smaller.
 
 To do:
 - Make possible kill enemies.
