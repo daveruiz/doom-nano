@@ -2,7 +2,7 @@
 #include "sprites.h"
 #include "display.h"
 #include "input.h"
-#include <MemoryFree.h>
+// #include <MemoryFree.h>
 
 // scenes
 #define INTRO                 0
@@ -33,6 +33,7 @@
 
 #define ENEMY_MELEE_DAMAGE    8
 #define ENEMY_FIREBALL_DAMAGE 20
+#define GUN_MAX_DAMAGE        15
 
 // entity status
 #define S_STAND               0
@@ -40,7 +41,7 @@
 #define S_FIRING              2
 #define S_MELEE               3
 #define S_HIT                 4
-#define S_DIED                5
+#define S_DEAD                5
 #define S_HIDDEN              6
 
 // useful macros
@@ -84,7 +85,7 @@ struct DozedEntity {
 };
 
 // general
-uint8_t scene = INTRO;
+uint8_t scene = GAME_PLAY; // INTRO;
 bool exit_scene = false;
 bool invert_screen = false;
 uint8_t flash_screen = 0;
@@ -260,8 +261,8 @@ uint16_t detectCollision(Coords *pos, double relative_x, double relative_y, bool
     
     type = getTypeFromUID(entity[i].uid);
 
-    // Only enemy collision
-    if (type != E_ENEMY) {
+    // Only ALIVE enemy collision
+    if (type != E_ENEMY || entity[i].state == S_DEAD || entity[i].state == S_HIDDEN) {
       continue;
     }
 
@@ -293,6 +294,9 @@ void updateEntities() {
   while(i<num_entities) {
     // update distance
     entity[i].distance = dist(player.pos, entity[i].pos);
+
+    // Run the timer. Works with actual frames. 
+    // Todo: use delta here. But needs double type and more memory
     if (entity[i].timer > 0) entity[i].timer--;
 
     // too far away. put it in doze mode
@@ -313,7 +317,12 @@ void updateEntities() {
     switch (type) {
       case E_ENEMY: {
         // Enemy "IA"
-        if (entity[i].state == S_HIT) {
+        if (entity[i].health == 0) {
+          if (entity[i].state != S_DEAD) {
+            entity[i].state = S_DEAD;
+            entity[i].timer = 6;  
+          }
+        } else  if (entity[i].state == S_HIT) {
           if (entity[i].timer == 0) {
             // Back to alert state
             entity[i].state = S_ALERT;
@@ -544,28 +553,33 @@ uint8_t sortEntities() {
   }
 }
 
+Coords translateIntoView(Coords *pos) {
+  //translate sprite position to relative to camera
+  double sprite_x = pos->x - player.pos.x;
+  double sprite_y = pos->y - player.pos.y;
+  
+  //required for correct matrix multiplication
+  double inv_det = 1.0 / (player.plane.x * player.dir.y - player.dir.x * player.plane.y); 
+  double transform_x = inv_det * (player.dir.y * sprite_x - player.dir.x * sprite_y);
+  double transform_y = inv_det * (- player.plane.y * sprite_x + player.plane.x * sprite_y); // Z in screen
+  
+  return { transform_x, transform_y };
+}
+
 void renderEntities() {  
   sortEntities();
   
   for (uint8_t i=0; i<num_entities; i++) {
     if (entity[i].state == S_HIDDEN) continue;
     
-    //translate sprite position to relative to camera
-    double sprite_x = entity[i].pos.x - player.pos.x;
-    double sprite_y = entity[i].pos.y - player.pos.y;
-    
-    //required for correct matrix multiplication
-    double inv_det = 1.0 / (player.plane.x * player.dir.y - player.dir.x * player.plane.y); 
-
-    double transform_x = inv_det * (player.dir.y * sprite_x - player.dir.x * sprite_y);
-    double transform_y = inv_det * (- player.plane.y * sprite_x + player.plane.x * sprite_y); // Z in screen
+    Coords transform = translateIntoView(&(entity[i].pos));
 
     // don´t render if behind the player or too far away
-    if (transform_y <= 0.1 || transform_y > MAX_SPRITE_DEPTH) {
+    if (transform.y <= 0.1 || transform.y > MAX_SPRITE_DEPTH) {
       continue;
     }
 
-    int16_t sprite_screen_x = HALF_WIDTH * (1.0 + transform_x / transform_y);
+    int16_t sprite_screen_x = HALF_WIDTH * (1.0 + transform.x / transform.y);
     uint8_t type = getTypeFromUID(entity[i].uid);
 
     // don´t try to render if outside of screen
@@ -590,7 +604,7 @@ void renderEntities() {
         } else if (entity[i].state == S_MELEE) {
           // melee atack
           sprite = entity[i].timer > 10 ? 2 : 1;
-        } else if (entity[i].state == S_DIED) {
+        } else if (entity[i].state == S_DEAD) {
           // dying
           sprite = entity[i].timer > 0 ? 3 : 4;
         } else {
@@ -599,51 +613,51 @@ void renderEntities() {
         }
 
         drawSprite(
-          sprite_screen_x - BMP_IMP_WIDTH * .5 / transform_y, 
-          RENDER_HEIGHT / 2 - 8 / transform_y, 
+          sprite_screen_x - BMP_IMP_WIDTH * .5 / transform.y, 
+          RENDER_HEIGHT / 2 - 8 / transform.y, 
           bmp_imp_bits, 
           bmp_imp_mask, 
           BMP_IMP_WIDTH, 
           BMP_IMP_HEIGHT, 
           sprite, 
-          transform_y
+          transform.y
         );
         break;
       }
 
       case E_FIREBALL: {
         // Todo: draw an actual sprite
-        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 4 / transform_y, 2);
-        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 3 / transform_y, 2);
-        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 2 / transform_y, 2);
-        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 1 / transform_y, 2);
+        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 4 / transform.y, 2);
+        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 3 / transform.y, 2);
+        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 2 / transform.y, 2);
+        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 1 / transform.y, 2);
         break;
       }
 
       case E_MEDIKIT: {
         drawSprite(
-          sprite_screen_x - BMP_ITEMS_WIDTH * .5 / transform_y, 
-          RENDER_HEIGHT / 2 + 5 / transform_y, 
+          sprite_screen_x - BMP_ITEMS_WIDTH * .5 / transform.y, 
+          RENDER_HEIGHT / 2 + 5 / transform.y, 
           bmp_items_bits, 
           bmp_items_mask, 
           BMP_ITEMS_WIDTH, 
           BMP_ITEMS_HEIGHT, 
           0,
-          transform_y
+          transform.y
         );
         break;
       }
 
       case E_KEY: {
         drawSprite(
-          sprite_screen_x - BMP_ITEMS_WIDTH * .5 / transform_y, 
-          RENDER_HEIGHT / 2 + 5 / transform_y, 
+          sprite_screen_x - BMP_ITEMS_WIDTH * .5 / transform.y, 
+          RENDER_HEIGHT / 2 + 5 / transform.y, 
           bmp_items_bits, 
           bmp_items_mask, 
           BMP_ITEMS_WIDTH, 
           BMP_ITEMS_HEIGHT, 
           1,
-          transform_y
+          transform.y
         );
         break;
       }
@@ -688,8 +702,8 @@ void updateHud() {
 void renderStats() {
   display.fillRect(58, 58, 70, 6, 0);
   drawText(114, 58, int(getActualFps()));
-  drawText(94, 58, freeMemory());
-  drawText(82, 58, num_entities);
+  // drawText(94, 58, freeMemory());
+  // drawText(82, 58, num_entities);
 }
 
 // Intro screen
@@ -717,6 +731,27 @@ void loopIntro() {
     readInput(); 
     if (p_fire) jumpTo(GAME_PLAY);
   } while(!exit_scene);
+}
+
+void fire() {
+  for (uint8_t i=0; i<num_entities; i++) {
+    uint8_t type = getTypeFromUID(entity[i].uid);
+
+    // Shoot only ALIVE enemies
+    if (type != E_ENEMY || entity[i].state == S_DEAD || entity[i].state == S_HIDDEN) {
+      continue;
+    }
+
+    Coords transform = translateIntoView(&(entity[i].pos));
+    if (abs(transform.x) < 20 && transform.y > 0) {
+      uint8_t damage = (double) GUN_MAX_DAMAGE / (abs(transform.x) * entity[i].distance) / 5; 
+      if (damage > 0) {
+        entity[i].health = max(0, entity[i].health - damage);
+        entity[i].state = S_HIT;
+        entity[i].timer = 4; 
+      }
+    }
+  }
 }
 
 void loopGamePlay() {
@@ -786,7 +821,7 @@ void loopGamePlay() {
       // ready to fire and fire pressed
       gun_pos = GUN_SHOT_POS;
       gun_fired = true;
-      // todo: fire the gun
+      fire();
     } else if (gun_fired && !p_fire) {
       // just fired and restored position
       gun_fired = false;
@@ -826,7 +861,7 @@ void loopGameOver() {
 
 void loop(void) {  
   switch(scene) {
-    case INTRO: { loopIntro(); break; }
+    // case INTRO: { loopIntro(); break; }
     case GAME_PLAY: { loopGamePlay(); break; }
     case GAME_OVER: { loopGameOver(); break; }
   }
