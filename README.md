@@ -32,7 +32,7 @@ Current status:
 - Currently I´m using 99% of program memory, which doesn´t let me adds more code. I need to research how to optimize it to make it smaller.
 
 To do:
-- Make possible kill enemies.
+- ~~Make possible kill enemies.~~
 - Doors and locked doors.
 - A game over screen.
 - Add more sprites, decorative elements, etc.

@@ -17,7 +17,7 @@
 #define MOV_SPEED_INV         5           // 1 / MOV_SPEED
 #define JOGGING_SPEED         .005
 #define ENEMY_SPEED           .02
-#define FIREBALL_SPEED        .08
+#define FIREBALL_SPEED        .2
 
 #define MAX_ENTITIES          8           // Max num of active entities
 #define MAX_DOZED_ENTITIES    28          // Max num of entities in sleep mode
@@ -430,7 +430,7 @@ void updateEntities() {
 }
 
 // The map raycaster. Based on https://lodev.org/cgtutor/raycasting.html
-void renderMap(const uint8_t level[], double amount_jogging) {
+void renderMap(const uint8_t level[], double view_height) {
   double camera_x;
   double ray_x; double ray_y;
   uint8_t map_x; uint8_t map_y;
@@ -442,7 +442,6 @@ void renderMap(const uint8_t level[], double amount_jogging) {
   uint8_t depth;
   double distance;
   uint8_t line_height;
-  double jogging = abs(sin((double) millis() * JOGGING_SPEED)) * 6 * amount_jogging;
   uint8_t block;
   uint16_t uid;
  
@@ -523,8 +522,8 @@ void renderMap(const uint8_t level[], double amount_jogging) {
   
       drawVLine(
         x,
-        jogging / distance - line_height / 2 + RENDER_HEIGHT / 2, 
-        jogging / distance + line_height / 2 + RENDER_HEIGHT / 2, 
+        view_height / distance - line_height / 2 + RENDER_HEIGHT / 2, 
+        view_height / distance + line_height / 2 + RENDER_HEIGHT / 2, 
         gradient_count - int(distance / MAX_RENDER_DEPTH * gradient_count) - side * 2
       );
     }
@@ -566,7 +565,7 @@ Coords translateIntoView(Coords *pos) {
   return { transform_x, transform_y };
 }
 
-void renderEntities() {  
+void renderEntities(double view_height) {  
   sortEntities();
   
   for (uint8_t i=0; i<num_entities; i++) {
@@ -580,6 +579,7 @@ void renderEntities() {
     }
 
     int16_t sprite_screen_x = HALF_WIDTH * (1.0 + transform.x / transform.y);
+    int8_t sprite_screen_y = RENDER_HEIGHT / 2 + view_height / transform.y;
     uint8_t type = getTypeFromUID(entity[i].uid);
 
     // don´t try to render if outside of screen
@@ -614,7 +614,7 @@ void renderEntities() {
 
         drawSprite(
           sprite_screen_x - BMP_IMP_WIDTH * .5 / transform.y, 
-          RENDER_HEIGHT / 2 - 8 / transform.y, 
+          sprite_screen_y - 8 / transform.y, 
           bmp_imp_bits, 
           bmp_imp_mask, 
           BMP_IMP_WIDTH, 
@@ -626,18 +626,23 @@ void renderEntities() {
       }
 
       case E_FIREBALL: {
-        // Todo: draw an actual sprite
-        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 4 / transform.y, 2);
-        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 3 / transform.y, 2);
-        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 2 / transform.y, 2);
-        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 1 / transform.y, 2);
+        drawSprite(
+          sprite_screen_x - BMP_FIREBALL_WIDTH / 2 / transform.y, 
+          sprite_screen_y - BMP_FIREBALL_HEIGHT / 2 / transform.y, 
+          bmp_fireball_bits, 
+          bmp_fireball_mask, 
+          BMP_FIREBALL_WIDTH, 
+          BMP_FIREBALL_HEIGHT, 
+          0,
+          transform.y
+        );
         break;
       }
 
       case E_MEDIKIT: {
         drawSprite(
-          sprite_screen_x - BMP_ITEMS_WIDTH * .5 / transform.y, 
-          RENDER_HEIGHT / 2 + 5 / transform.y, 
+          sprite_screen_x - BMP_ITEMS_WIDTH / 2 / transform.y, 
+          sprite_screen_y + 5 / transform.y, 
           bmp_items_bits, 
           bmp_items_mask, 
           BMP_ITEMS_WIDTH, 
@@ -650,8 +655,8 @@ void renderEntities() {
 
       case E_KEY: {
         drawSprite(
-          sprite_screen_x - BMP_ITEMS_WIDTH * .5 / transform.y, 
-          RENDER_HEIGHT / 2 + 5 / transform.y, 
+          sprite_screen_x - BMP_ITEMS_WIDTH / 2 / transform.y, 
+          sprite_screen_y + 5 / transform.y, 
           bmp_items_bits, 
           bmp_items_mask, 
           BMP_ITEMS_WIDTH, 
@@ -760,6 +765,8 @@ void loopGamePlay() {
   double rot_speed;
   double old_dir_x;
   double old_plane_x;
+  double view_height;
+  double jogging;
 
   initializeLevel(sto_level_1);
   renderHud();
@@ -772,31 +779,59 @@ void loopGamePlay() {
     display.fillRect(0, 0, SCREEN_WIDTH, RENDER_HEIGHT, 0);
 
     // Player speed
-    if (p_up) {
-      player.velocity += (MOV_SPEED - player.velocity) * .4; ;
-    } else if (p_down) {
-      player.velocity += (- MOV_SPEED - player.velocity) * .4;
-    } else {
-      player.velocity *= .5;
-    }
+    if (player.health > 0) {
+      if (p_up) {
+        player.velocity += (MOV_SPEED - player.velocity) * .4;
+        jogging = abs(player.velocity) * MOV_SPEED_INV;
+      } else if (p_down) {
+        player.velocity += (- MOV_SPEED - player.velocity) * .4;
+        jogging = abs(player.velocity) * MOV_SPEED_INV;
+      } else {
+        player.velocity *= .5;
+        jogging = abs(player.velocity) * MOV_SPEED_INV;
+      }
+  
+      // Player rotation 
+      if (p_right) {
+        rot_speed = ROT_SPEED * delta;
+        old_dir_x = player.dir.x;
+        player.dir.x = player.dir.x * cos(-rot_speed) - player.dir.y * sin(-rot_speed);
+        player.dir.y = old_dir_x * sin(-rot_speed) + player.dir.y * cos(-rot_speed);
+        old_plane_x = player.plane.x;
+        player.plane.x = player.plane.x * cos(-rot_speed) - player.plane.y * sin(-rot_speed);
+        player.plane.y = old_plane_x * sin(-rot_speed) + player.plane.y * cos(-rot_speed);
+      } else if (p_left) {
+        rot_speed = ROT_SPEED * delta;
+        old_dir_x = player.dir.x;
+        player.dir.x = player.dir.x * cos(rot_speed) - player.dir.y * sin(rot_speed);
+        player.dir.y = old_dir_x * sin(rot_speed) + player.dir.y * cos(rot_speed);
+        old_plane_x = player.plane.x;
+        player.plane.x = player.plane.x * cos(rot_speed) - player.plane.y * sin(rot_speed);
+        player.plane.y = old_plane_x * sin(rot_speed) + player.plane.y * cos(rot_speed);
+      }
 
-    // Player rotation 
-    if (p_right) {
-      rot_speed = ROT_SPEED * delta;
-      old_dir_x = player.dir.x;
-      player.dir.x = player.dir.x * cos(-rot_speed) - player.dir.y * sin(-rot_speed);
-      player.dir.y = old_dir_x * sin(-rot_speed) + player.dir.y * cos(-rot_speed);
-      old_plane_x = player.plane.x;
-      player.plane.x = player.plane.x * cos(-rot_speed) - player.plane.y * sin(-rot_speed);
-      player.plane.y = old_plane_x * sin(-rot_speed) + player.plane.y * cos(-rot_speed);
-    } else if (p_left) {
-      rot_speed = ROT_SPEED * delta;
-      old_dir_x = player.dir.x;
-      player.dir.x = player.dir.x * cos(rot_speed) - player.dir.y * sin(rot_speed);
-      player.dir.y = old_dir_x * sin(rot_speed) + player.dir.y * cos(rot_speed);
-      old_plane_x = player.plane.x;
-      player.plane.x = player.plane.x * cos(rot_speed) - player.plane.y * sin(rot_speed);
-      player.plane.y = old_plane_x * sin(rot_speed) + player.plane.y * cos(rot_speed);
+      view_height = abs(sin((double) millis() * JOGGING_SPEED)) * 6 * jogging;
+
+      // Update gun
+      if (gun_pos > GUN_TARGET_POS) {
+        // Right after fire
+        gun_pos -= 1;
+      } else if (gun_pos < GUN_TARGET_POS) {
+        // Showing up
+        gun_pos += 2;
+      } else if (!gun_fired && p_fire) {
+        // ready to fire and fire pressed
+        gun_pos = GUN_SHOT_POS;
+        gun_fired = true;
+        fire();
+      } else if (gun_fired && !p_fire) {
+        // just fired and restored position
+        gun_fired = false;
+      }
+    } else {
+      // The player is dead
+      if (view_height > -10) view_height--;
+      if (gun_pos > 0) gun_pos--;
     }
 
     // Player movement
@@ -810,30 +845,13 @@ void loopGamePlay() {
       player.velocity = 0;
     }
 
-    // Update gun
-    if (gun_pos > GUN_TARGET_POS) {
-      // Right after fire
-      gun_pos -= 1;
-    } else if (gun_pos < GUN_TARGET_POS) {
-      // Showing up
-      gun_pos += 2;
-    } else if (!gun_fired && p_fire) {
-      // ready to fire and fire pressed
-      gun_pos = GUN_SHOT_POS;
-      gun_fired = true;
-      fire();
-    } else if (gun_fired && !p_fire) {
-      // just fired and restored position
-      gun_fired = false;
-    }
-
     // Update things
     updateEntities();
 
     // Render stuff
-    renderMap(sto_level_1, abs(player.velocity) * MOV_SPEED_INV);
-    renderEntities();
-    renderGun(gun_pos, abs(player.velocity) * MOV_SPEED_INV);
+    renderMap(sto_level_1, view_height);
+    renderEntities(view_height);
+    renderGun(gun_pos, jogging);
     renderStats();
     
     // flash screen
