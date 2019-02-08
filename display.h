@@ -273,7 +273,7 @@ void drawSprite(
     
     for (uint8_t tx=0; tx<tw; tx+=pixel_size) {
       uint8_t sx = tx * distance; // The x from the sprite
-      uint8_t byte_offset = sprite_offset + sy * byte_width + sx / 8;
+      uint16_t byte_offset = sprite_offset + sy * byte_width + sx / 8;
 
       // Don't draw out of screen
       if (x + tx < 0 || x + tx >= SCREEN_WIDTH) {

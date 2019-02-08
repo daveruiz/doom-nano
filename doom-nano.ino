@@ -17,17 +17,19 @@
 #define MOV_SPEED_INV         5           // 1 / MOV_SPEED
 #define JOGGING_SPEED         .005
 #define ENEMY_SPEED           .02
-#define FIREWALL_SPEED        .08
+#define FIREBALL_SPEED        .08
 
-#define MAX_ENTITIES          8
-#define MAX_DOZED_ENTITIES    28
+#define MAX_ENTITIES          8           // Max num of active entities
+#define MAX_DOZED_ENTITIES    28          // Max num of entities in sleep mode
+#define FIREBALL_ANGLES       45          // Num of angles per PI
 
 #define MAX_ENTITY_DISTANCE   200         // * DISTANCE_MULTIPLIER
 #define MAX_ENEMY_VIEW        80          // * DISTANCE_MULTIPLIER
 #define ITEM_COLLIDER_DIST    6           // * DISTANCE_MULTIPLIER
 #define ENEMY_COLLIDER_DIST   4           // * DISTANCE_MULTIPLIER
+#define FIREBALL_COLLIDER_DIST 3          // * DISTANCE_MULTIPLIER
 #define ENEMY_MELEE_DIST      6           // * DISTANCE_MULTIPLIER
-#define WALL_COLLIDER_DIST    .2
+#define WALL_COLLIDER_DIST    .2          
 
 #define ENEMY_MELEE_DAMAGE    8
 #define ENEMY_FIREBALL_DAMAGE 20
@@ -84,7 +86,8 @@ struct DozedEntity {
 };
 
 // general
-uint8_t scene = INTRO;
+//uint8_t scene = INTRO;
+uint8_t scene = GAME_PLAY;
 bool exit_scene = false;
 bool invert_screen = false;
 uint8_t flash_screen = 0;
@@ -180,15 +183,20 @@ void spawnEntity(uint16_t uid, uint8_t x, uint8_t y) {
   }  
 }
 
-void spawnFireball(double x, double y) {
+void spawnFireball(double x, double y) {  
   // Limit the number of spawned entities
   if (num_entities >= MAX_ENTITIES) {
     return;
   }
 
-  // calculate direction
-  uint8_t dir = 0;
-  entity[num_entities] = { getEntityUID(E_FIREBALL, int(x), int(y)), { x, y }, S_STAND, dir, 0 };
+  uint16_t uid = getEntityUID(E_FIREBALL, int(x), int(y));
+  // Remove if already exists, don´t throw anything. Not the best, but shouldn´t happen too often
+  if (isSpawned(uid)) return;
+
+  // Calculate direction. 32 angles
+  int16_t dir = FIREBALL_ANGLES + atan2(y - player.pos.y, x - player.pos.x) / PI * FIREBALL_ANGLES;
+  if (dir < 0) dir += FIREBALL_ANGLES * 2;
+  entity[num_entities] = { uid, { x, y }, S_STAND, dir, 0 };
   num_entities++;
 }
 
@@ -228,7 +236,7 @@ bool isDozed(uint16_t uid) {
   return false;
 }
 
-bool detectCollision(Coords *pos, double relative_x, double relative_y) {
+uint16_t detectCollision(Coords *pos, double relative_x, double relative_y, bool only_walls = false) {
   uint8_t type;
   uint16_t distance;
   uint8_t i = 0;
@@ -236,8 +244,13 @@ bool detectCollision(Coords *pos, double relative_x, double relative_y) {
   // Wall collision
   uint8_t round_x = wallRound(player.pos.x + relative_x);
   uint8_t round_y = wallRound(player.pos.y + relative_y);
-  if (isCollider(getBlockAt(sto_level_1, round_x, round_y))) {
-    return true;
+  uint8_t block = getBlockAt(sto_level_1, round_x, round_y);
+  if (isCollider(block)) {
+    return getEntityUID(block, round_x, round_y);
+  }
+
+  if (only_walls) {
+    return false;
   }
 
   // Entity collision
@@ -259,22 +272,22 @@ bool detectCollision(Coords *pos, double relative_x, double relative_y) {
 
     // Check distance and if it´s getting closer
     if (distance < ENEMY_COLLIDER_DIST && distance < entity[i].distance) {
-      return true;
+      return entity[i].uid;
     }
   }
 
-  return false;
+  return 0;
 }
 
-// Update coords if possible. Return if collided
-bool updatePosition(Coords *pos, double relative_x, double relative_y) {
-  bool collide_x = detectCollision(pos, relative_x, 0);
-  bool collide_y = detectCollision(pos, 0, relative_y);
-  
-  if (!collide_x) pos->x += relative_x;
-  if (!collide_y) pos->y += relative_y;
+// Update coords if possible. Return the collided uid, if any
+uint16_t updatePosition(Coords *pos, double relative_x, double relative_y, bool only_walls = false) {
+  uint16_t collide_x = detectCollision(pos, relative_x, 0, only_walls);
+  uint16_t collide_y = detectCollision(pos, 0, relative_y, only_walls);
 
-  return collide_x || collide_y;
+  if (!collide_x) pos->x += relative_x;
+  if (!collide_y) pos->y += relative_y;  
+
+  return collide_x || collide_y || 0;
 }
 
 void updateEntities() {  
@@ -306,13 +319,13 @@ void updateEntities() {
           if (entity[i].timer == 0) {
             // Back to alert state
             entity[i].state = S_ALERT;
-            entity[i].timer = 20;     // delay next fireball thrown
+            entity[i].timer = 40;     // delay next fireball thrown
           }
         } else if (entity[i].state == S_FIRING) {
           if (entity[i].timer == 0) {
             // Back to alert state
             entity[i].state = S_ALERT;
-            entity[i].timer = 20;     // delay next fireball throwm
+            entity[i].timer = 40;     // delay next fireball throwm
           }
         } else {
           // ALERT STATE
@@ -331,7 +344,8 @@ void updateEntities() {
                 updatePosition(
                   &(entity[i].pos), 
                   sign(player.pos.x, entity[i].pos.x) * ENEMY_SPEED * delta,
-                  sign(player.pos.y, entity[i].pos.y) * ENEMY_SPEED * delta
+                  sign(player.pos.y, entity[i].pos.y) * ENEMY_SPEED * delta,
+                  true
                 );
               }
             }
@@ -356,7 +370,7 @@ void updateEntities() {
       }
 
       case E_FIREBALL: {
-        if (entity[i].distance < 2) {
+        if (entity[i].distance < FIREBALL_COLLIDER_DIST) {
           // Hit the player and disappear
           player.health = max(0, player.health - ENEMY_FIREBALL_DAMAGE);
           flash_screen = 1;
@@ -364,19 +378,26 @@ void updateEntities() {
           removeEntity(entity[i].uid);
           continue; // continue in the loop
         } else {
-          // Move 
+          // Move. Only collide with walls. 
           // Note: using health to store the angle of the movement
-          bool collided = updatePosition(
+          uint16_t collided = updatePosition(
             &(entity[i].pos), 
-            cos(entity[i].health / 4 * PI) * FIREWALL_SPEED,
-            sin(entity[i].health / 4 * PI) * FIREWALL_SPEED
+            cos((double) entity[i].health / FIREBALL_ANGLES * PI) * FIREBALL_SPEED,
+            sin((double) entity[i].health / FIREBALL_ANGLES * PI) * FIREBALL_SPEED,
+            true
           );
+
+          Serial.print(collided);
+          Serial.print(" ");
+          Serial.print(getTypeFromUID(collided), BIN);
+          Serial.println();
 
           if (collided) {
             removeEntity(entity[i].uid);
-            continue; // continue in the loop
+            continue; // continue in the entity check loop
           }
         }
+        break;
       }
 
       case E_MEDIKIT: {
@@ -570,7 +591,7 @@ void renderEntities() {
         } else if (entity[i].state == S_FIRING) {
           // fireball
           sprite = 2;
-        } else if (entity[i].state == S_FIRING) {
+        } else if (entity[i].state == S_HIT) {
           // hit
           sprite = 3;
         } else if (entity[i].state == S_MELEE) {
@@ -583,6 +604,7 @@ void renderEntities() {
           // stand
           sprite = 0;  
         }
+
         drawSprite(
           sprite_screen_x - BMP_IMP_WIDTH * .5 / transform_y, 
           RENDER_HEIGHT / 2 - 8 / transform_y, 
@@ -597,13 +619,11 @@ void renderEntities() {
       }
 
       case E_FIREBALL: {
-        // todo: print an actual sprite
-        display.drawCircle(
-          sprite_screen_x,
-          RENDER_HEIGHT / 2, 
-          60 / transform_y,
-          1
-        );
+        // Todo: draw an actual sprite
+        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 4 / transform_y, 1);
+        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 3 / transform_y, 1);
+        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 2 / transform_y, 1);
+        display.drawCircle(sprite_screen_x, RENDER_HEIGHT / 2, 1 / transform_y, 1);
         break;
       }
 
@@ -812,7 +832,7 @@ void loopGameOver() {
 
 void loop(void) {  
   switch(scene) {
-    case INTRO: { loopIntro(); break; }
+    //case INTRO: { loopIntro(); break; }
     case GAME_PLAY: { loopGamePlay(); break; }
     case GAME_OVER: { loopGameOver(); break; }
   }
