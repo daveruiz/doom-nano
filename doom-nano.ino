@@ -2,7 +2,7 @@
 #include "sprites.h"
 #include "display.h"
 #include "input.h"
-#include <MemoryFree.h>
+// #include <MemoryFree.h>
 
 // scenes
 #define INTRO                 0
@@ -27,8 +27,9 @@
 #define ITEM_COLLIDER_DIST    6           // * DISTANCE_MULTIPLIER
 #define ENEMY_COLLIDER_DIST   4           // * DISTANCE_MULTIPLIER
 #define ENEMY_MELEE_DIST      6           // * DISTANCE_MULTIPLIER
+#define WALL_COLLIDER_DIST    .2
 
-#define ENEMY_MELEE_DAMAGE    10
+#define ENEMY_MELEE_DAMAGE    8
 #define ENEMY_FIREBALL_DAMAGE 20
 
 // entity status
@@ -46,7 +47,9 @@
 #define dist(pos_a, pos_b)    sqrt(sq(pos_a.x - pos_b.x) + sq(pos_a.y - pos_b.y)) * DISTANCE_MULTIPLIER
 #define dist_p(pos_p_a, pos_b)  sqrt(sq(pos_p_a->x - pos_b.x) + sq(pos_p_a->y - pos_b.y)) * DISTANCE_MULTIPLIER
 #define isSpawnable(block)    block == E_ENEMY || block & 0b00001000 /* all collectable items */ 
-#define isCollider(block)     block == E_WALL                      
+#define isCollider(block)     block == E_WALL
+#define dec(val)              ((val) - int(val))
+#define wallRound(val)        (dec(val) < WALL_COLLIDER_DIST ? int(val) - 1 : (dec(val) > (1 - WALL_COLLIDER_DIST) ? int(val) + 1 : int(val)))
 
 struct Coords {
   double x;
@@ -231,8 +234,9 @@ bool detectCollision(Coords *pos, double relative_x, double relative_y) {
   uint8_t i = 0;
   
   // Wall collision
-  uint8_t block = getBlockAt(sto_level_1, player.pos.x + relative_x, player.pos.y + relative_y);
-  if (block == E_WALL) {
+  uint8_t round_x = wallRound(player.pos.x + relative_x);
+  uint8_t round_y = wallRound(player.pos.y + relative_y);
+  if (isCollider(getBlockAt(sto_level_1, round_x, round_y))) {
     return true;
   }
 
@@ -671,7 +675,7 @@ void updateHud() {
 void renderStats() {
   display.fillRect(58, 58, 70, 6, 0);
   drawText(114, 58, int(getActualFps()));
-  drawText(94, 58, freeMemory());
+  // drawText(94, 58, freeMemory());
   drawText(82, 58, num_entities);
 }
 
@@ -681,18 +685,18 @@ void loopIntro() {
   for (uint8_t i=0; i<8; i++) {
     drawBitmap(
       (SCREEN_WIDTH - BMP_LOGO_WIDTH) / 2,
-      (SCREEN_HEIGHT - BMP_LOGO_HEIGHT) / 2,
+      (SCREEN_HEIGHT - BMP_LOGO_HEIGHT) / 3,
       bmp_logo_bits,
       BMP_LOGO_WIDTH,
       BMP_LOGO_HEIGHT,
       i
     );
     display.display();
-    delay(100);
+    delay(80);
   }
 
   delay(1000);
-  drawText(38, 55, F("PRESS FIRE"));
+  drawText(SCREEN_WIDTH / 2 - 25, SCREEN_HEIGHT * .8, F("PRESS FIRE"));
   display.display();
 
   // wait for fire
@@ -719,7 +723,7 @@ void loopGamePlay() {
     // Clear only the 3d view
     display.fillRect(0, 0, SCREEN_WIDTH, RENDER_HEIGHT, 0);
 
-    // Player movement
+    // Player speed
     if (p_up) {
       player.velocity += (MOV_SPEED - player.velocity) * .4; ;
     } else if (p_down) {
@@ -728,19 +732,7 @@ void loopGamePlay() {
       player.velocity *= .5;
     }
 
-    // Collision
-    if (abs(player.velocity) > 0.003) {
-      updatePosition(
-        &(player.pos), 
-        player.dir.x * player.velocity * delta, 
-        player.dir.y * player.velocity * delta
-      );
-    } else {
-      player.velocity = 0;
-    }
-
     // Player rotation 
-    
     if (p_right) {
       rot_speed = ROT_SPEED * delta;
       old_dir_x = player.dir.x;
@@ -757,6 +749,17 @@ void loopGamePlay() {
       old_plane_x = player.plane.x;
       player.plane.x = player.plane.x * cos(rot_speed) - player.plane.y * sin(rot_speed);
       player.plane.y = old_plane_x * sin(rot_speed) + player.plane.y * cos(rot_speed);
+    }
+
+    // Player movement
+    if (abs(player.velocity) > 0.003) {
+      updatePosition(
+        &(player.pos), 
+        player.dir.x * player.velocity * delta, 
+        player.dir.y * player.velocity * delta
+      );
+    } else {
+      player.velocity = 0;
     }
 
     // Update gun
