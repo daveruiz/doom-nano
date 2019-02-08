@@ -3,14 +3,14 @@ A 3d raycast engine for Arduino
 
 ![](/screen-1.jpg?raw=true)
 
-See it in action --->
+See it in action (outdated) --->
 https://youtu.be/FX7PQtUAkHk
 
-Just experimenting with an Arduino Nano I bought some time ago. This chip is very limited in process and memory.
-Probably can be optimized and structured much better. Still learning.
-Will try to keep learning and improve it.
+Just experimenting with an Arduino Nano I bought some time ago. This chip is very limited in process and memory: 16Mhz, only 32kb for program memory and 2kb of RAM, of which 1kb is entirely used for the screen.
+Most of problems I´m facing currently are about memory. CPU clock might be a problem too, but can be more or less avoided having more memory for calculation shortcuts.
+Despite of all those limitations, I managed to make it run at 8-11 FPS with most of stuff already done. Probably can be optimized and structured much better. Will try to keep learning and improve it.
 
-To be clear. This is not an actual Doom game, just picked some sprites from it (and simplified a lot), But the rendering engine is more like a Wolfeistein 3D. The Doom idea came because I started building the fancy melt-screen effect, included here.
+To be clear. *This is not an actual Doom game*, just picked some sprites from it (and simplified a lot), But the rendering engine is more like a Wolfeistein 3D. The Doom idea came because I started building the fancy melt-screen effect, included here.
 
 Hardware I used:
 - Protoboard
@@ -23,18 +23,22 @@ Resources:
 - Sprites from https://www.spriters-resource.com
 - Much thanks to https://lodev.org/cgtutor for so wonderful resource about raycasting engines
 
+Current status:
+- The map rendering is working nicely. Even I was able to add a depth effect by using different dithering patterns, depending on the distance to the view.
+- Sprites are working too, though has some issues hiding them behind walls because memory limitations (the z-buffer precision has been limited a lot to make it smalle).
+- You can move through the map, collide with walls, collect items and interact with enemies. I could also add the jogging effect, like Doom´s one.
+- The enemies IA, despite is very simple, I think works very well and it´s enough for the purpose of the game. Looks very similar to Imp enemy from original Doom.
+- Currently I´m using 99% of program memory, which doesn´t let me adds more code. I need to research how to optimize my code to make it smaller.
+
 To do:
-- ~~Make z-buffer work~~
-- ~~Make work picking up medikits and keys~~
-- ~~Some UI~~
-- Build some basic IA for enemies
-- Make possible kill enemies
-- Doors and locked doors
-- A game over screen
+- Make possible kill enemies.
+- Doors and locked doors.
+- A game over screen.
+- Add more sprites, decorative elements, etc.
 - Textures? Very performance expensive. I don't think so.
-- Sound/Music? 
+- Make code looks nicer! Move all to pure c++
+- Sound/Music? Hmmm I wish so, but...
 
-More screens:
+More screens (outdated):
 ![](/screen-2.jpg?raw=true)
-
 ![](/screen-3.jpg?raw=true)
