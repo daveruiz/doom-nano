@@ -3,8 +3,9 @@ A 3d raycast engine for Arduino
 
 ![](/screen-1.jpg?raw=true)
 
-See it in action (outdated) --->
-https://youtu.be/FX7PQtUAkHk
+See it in action --->
+https://youtu.be/FX7PQtUAkHk (Progress at Jan, 20 2019)
+https://youtu.be/wJG04DSo7Xw (Progress at Feb, 09 2019)
 
 Just experimenting with an Arduino Nano I bought some time ago. This chip is very limited in process and memory: 16Mhz, only 32kb for program memory and 2kb of RAM, of which 1kb is entirely used for the screen.
 Most of problems I´m facing currently are about memory. CPU clock might be a problem too, but can be more or less avoided having more memory for calculation shortcuts.
@@ -41,5 +42,7 @@ To do:
 - Sound/Music? Hmmm I wish so, but...
 
 More screens (outdated):
-![](/screen-2.jpg?raw=true)
-![](/screen-3.jpg?raw=true)
+![](/screen-4.jpg?raw=true)
+![](/screen-5.jpg?raw=true)
+![](/screen-6.jpg?raw=true)
+![](/screen-7.jpg?raw=true)
