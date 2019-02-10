@@ -19,7 +19,7 @@
                                         // Lower will require more process and memory, but looks nicer
 #define Z_RES_DIVIDER       2           // Zbuffer resolution divider. We sacrifice resolution to save memory
 #define DISTANCE_MULTIPLIER 20          // Distances are stored as uint8_t, mutiplying the distance we can obtain more precision taking care
-                                        // of keep numbers inside the type range. Max is 256 / MAX_RENDER_DEPTH 
+                                        // of keep numbers inside the type range. Max is 256 / MAX_RENDER_DEPTH
 #define MAX_RENDER_DEPTH    12
 #define MAX_SPRITE_DEPTH    8
 #define MELT_SPEED          6
@@ -55,7 +55,7 @@ void drawText(int8_t x, int8_t y, __FlashStringHelper txt, uint8_t space = 1);
 // Initalize screen. Following line is for OLED 128x64 connected by I2C
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-// FPS control 
+// FPS control
 double delta = 1;
 double lastFrameTime = 0;
 
@@ -71,18 +71,18 @@ uint8_t zbuffer[ZBUFFER_SIZE];
 void setupDisplay() {
   // Setup display
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Fixed from 0x3D
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Fixed from 0x3D
     Serial.println(F("SSD1306 allocation failed"));
-    while(1); // Don't proceed, loop forever
+    while (1); // Don't proceed, loop forever
   }
 
   display.clearDisplay();
-  #ifdef OPTIMIZE_SSD1306
+#ifdef OPTIMIZE_SSD1306
   display_buf = display.getBuffer();
-  #endif
+#endif
 
   // initialize z buffer
-  for (uint8_t i=0; i<SCREEN_WIDTH/Z_RES_DIVIDER; i++) zbuffer[i] = 255;
+  for (uint8_t i = 0; i < SCREEN_WIDTH / Z_RES_DIVIDER; i++) zbuffer[i] = 255;
 }
 
 // Adds a delay to limit play to specified fps
@@ -98,26 +98,26 @@ double getActualFps() {
 }
 
 // Helper for melting screen. Picks the relative pixel after melt effect
-// Similar to adafruit::getPixel but removed some checks to make it faster. 
+// Similar to adafruit::getPixel but removed some checks to make it faster.
 bool getMeltedPixel(uint8_t frame, uint8_t x, uint8_t y) {
-  uint8_t offset = F_char(MELT_OFFSETS, x%MELT_OFFSETS_SIZE) - 48; // get "random:" numbers from 0 - 9
+  uint8_t offset = F_char(MELT_OFFSETS, x % MELT_OFFSETS_SIZE) - 48; // get "random:" numbers from 0 - 9
   int8_t dy = frame < offset ? y : y - MELT_SPEED;
-  
-  // Return black
-  if (dy < 0) return false; 
 
-  #ifdef OPTIMIZE_SSD1306
+  // Return black
+  if (dy < 0) return false;
+
+#ifdef OPTIMIZE_SSD1306
   return display_buf[x + (dy / 8) * SCREEN_WIDTH] & (1 << (dy & 7));
-  #else
+#else
   return display.getPixel(x, dy);
-  #endif
+#endif
 }
 
 // Faster way to render vertical bits
 void drawByte(uint8_t x, uint8_t y, uint8_t b) {
-  #ifdef OPTIMIZE_SSD1306
-  display_buf[(y/8)*SCREEN_WIDTH + x] = b;
-  #endif  
+#ifdef OPTIMIZE_SSD1306
+  display_buf[(y / 8)*SCREEN_WIDTH + x] = b;
+#endif
 }
 
 // Melt the screen DOOM style
@@ -126,37 +126,37 @@ void meltScreen() {
   uint8_t x;
   int8_t y;
 
-  do {  
+  do {
     fps();
 
-    #ifdef OPTIMIZE_SSD1306
+#ifdef OPTIMIZE_SSD1306
     // The screen distribution is 8 rows of 128x8 pixels
-    for (y = SCREEN_HEIGHT - 8; y >= 0; y-=8) {
+    for (y = SCREEN_HEIGHT - 8; y >= 0; y -= 8) {
       for (x = 0; x < SCREEN_WIDTH;  x++) {
         drawByte(x, y,
-            (getMeltedPixel(frames, x, y+7) << 7)
-          | (getMeltedPixel(frames, x, y+6) << 6)
-          | (getMeltedPixel(frames, x, y+5) << 5)
-          | (getMeltedPixel(frames, x, y+4) << 4)
-          | (getMeltedPixel(frames, x, y+3) << 3)
-          | (getMeltedPixel(frames, x, y+2) << 2)
-          | (getMeltedPixel(frames, x, y+1) << 1)
-          | getMeltedPixel(frames, x, y)
-        );
+                 (getMeltedPixel(frames, x, y + 7) << 7)
+                 | (getMeltedPixel(frames, x, y + 6) << 6)
+                 | (getMeltedPixel(frames, x, y + 5) << 5)
+                 | (getMeltedPixel(frames, x, y + 4) << 4)
+                 | (getMeltedPixel(frames, x, y + 3) << 3)
+                 | (getMeltedPixel(frames, x, y + 2) << 2)
+                 | (getMeltedPixel(frames, x, y + 1) << 1)
+                 | getMeltedPixel(frames, x, y)
+                );
       }
     }
-    #else
+#else
     for (y = SCREEN_HEIGHT; y >= 0; y--) {
       for (x = 0; x < SCREEN_WIDTH;  x++) {
-        display.drawPixel(x, y, getMeltedPixel(frames, x, y));        
+        display.drawPixel(x, y, getMeltedPixel(frames, x, y));
       }
     }
-    #endif
+#endif
 
     display.display();
 
     frames++;
-  } while(frames < 30);
+  } while (frames < 30);
 }
 
 boolean getGradientPixel(uint8_t x, uint8_t y, uint8_t i) {
@@ -164,8 +164,8 @@ boolean getGradientPixel(uint8_t x, uint8_t y, uint8_t i) {
   if (i >= GRADIENT_COUNT - 1) return 1;
 
   uint8_t index = max(0, min(GRADIENT_COUNT - 1, i)) * GRADIENT_WIDTH * GRADIENT_HEIGHT // gradient index
-    + y * GRADIENT_WIDTH % (GRADIENT_WIDTH * GRADIENT_HEIGHT)                           // y byte offset
-    + x / GRADIENT_HEIGHT % GRADIENT_WIDTH;                                             // x byte offset
+                  + y * GRADIENT_WIDTH % (GRADIENT_WIDTH * GRADIENT_HEIGHT)                           // y byte offset
+                  + x / GRADIENT_HEIGHT % GRADIENT_WIDTH;                                             // x byte offset
 
   // return the bit based on x
   return read_bit(pgm_read_byte(gradient + index), x % 8);
@@ -178,18 +178,18 @@ void drawPixel(int8_t x, int8_t y, bool color, bool raycasterViewport = false) {
   if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= (raycasterViewport ? RENDER_HEIGHT : SCREEN_HEIGHT)) {
     return;
   }
-  
-  #ifdef OPTIMIZE_SSD1306
+
+#ifdef OPTIMIZE_SSD1306
   if (color) {
     // white
-    display_buf[x + (y/8)*SCREEN_WIDTH] |= (1 << (y&7));
+    display_buf[x + (y / 8)*SCREEN_WIDTH] |= (1 << (y & 7));
   } else {
     // black
-    display_buf[x + (y/8)*SCREEN_WIDTH] &= ~(1 << (y&7));
+    display_buf[x + (y / 8)*SCREEN_WIDTH] &= ~(1 << (y & 7));
   }
-  #else
+#else
   display.drawPixel(x, y, color);
-  #endif
+#endif
 }
 
 // For raycaster only
@@ -201,51 +201,51 @@ void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity) {
   int8_t higher_y = min(max(start_y, end_y), RENDER_HEIGHT - 1);
   uint8_t c;
 
-  #ifdef OPTIMIZE_SSD1306
+#ifdef OPTIMIZE_SSD1306
   uint8_t bp;
   uint8_t b;
-  for (c=0; c<RES_DIVIDER; c++) {
+  for (c = 0; c < RES_DIVIDER; c++) {
     y = lower_y;
     b = 0;
     while (y <= higher_y) {
       bp = y % 8;
-      b = b | getGradientPixel(x+c, y, intensity) << bp;
+      b = b | getGradientPixel(x + c, y, intensity) << bp;
 
       if (bp == 7) {
         // write the whole byte
-        drawByte(x+c, y, b);
+        drawByte(x + c, y, b);
         b = 0;
       }
-      
+
       y++;
     }
 
     // draw last byte
     if (bp != 7) {
-      drawByte(x+c, y-1, b);
+      drawByte(x + c, y - 1, b);
     }
   }
-  #else
+#else
   y = lower_y;
   while (y <= higher_y) {
-    for (c=0; c<RES_DIVIDER; c++) {
+    for (c = 0; c < RES_DIVIDER; c++) {
       // bypass black pixels
-      if (getGradientPixel(x+c, y, intensity)) {
-        drawPixel(x+c, y, 1, true);
+      if (getGradientPixel(x + c, y, intensity)) {
+        drawPixel(x + c, y, 1, true);
       }
     }
-    
+
     y++;
   }
-  #endif
+#endif
 }
 
 // Custom drawBitmap method with scale support, mask, zindex and pattern filling
 void drawSprite(
-  int8_t x, int8_t y, 
+  int8_t x, int8_t y,
   const uint8_t bitmap[], const uint8_t mask[],
-  int16_t w, int16_t h, 
-  uint8_t sprite, 
+  int16_t w, int16_t h,
+  uint8_t sprite,
   double distance
 ) {
   uint8_t tw = (double) w / distance;
@@ -253,7 +253,7 @@ void drawSprite(
   uint8_t byte_width = w / 8;
   uint8_t pixel_size = max(1, 1.0 / distance);
   uint16_t sprite_offset = byte_width * h * sprite;
-  
+
   bool pixel;
   bool maskPixel;
 
@@ -263,15 +263,15 @@ void drawSprite(
     return;
   }
 
-  for (uint8_t ty=0; ty<th; ty+=pixel_size) {
+  for (uint8_t ty = 0; ty < th; ty += pixel_size) {
     // Don't draw out of screen
     if (y + ty < 0 || y + ty >= RENDER_HEIGHT) {
       continue;
     }
 
     uint8_t sy = ty * distance; // The y from the sprite
-    
-    for (uint8_t tx=0; tx<tw; tx+=pixel_size) {
+
+    for (uint8_t tx = 0; tx < tw; tx += pixel_size) {
       uint8_t sx = tx * distance; // The x from the sprite
       uint16_t byte_offset = sprite_offset + sy * byte_width + sx / 8;
 
@@ -282,10 +282,10 @@ void drawSprite(
 
       pixel = read_bit(pgm_read_byte(bitmap + byte_offset), sx % 8);
       maskPixel = read_bit(pgm_read_byte(mask + byte_offset), sx % 8);
-      
+
       if (maskPixel) {
-        for (uint8_t ox=0; ox<pixel_size; ox++) {
-          for (uint8_t oy=0; oy<pixel_size; oy++) {
+        for (uint8_t ox = 0; ox < pixel_size; ox++) {
+          for (uint8_t oy = 0; oy < pixel_size; oy++) {
             drawPixel(x + tx + ox, y + ty + oy, pixel, true);
           }
         }
@@ -297,21 +297,21 @@ void drawSprite(
 // Custom draw bitmap with brighness support
 // Note: is much more slower than display.drawBitmap
 void drawBitmap(int8_t x, int8_t y,
-  const uint8_t bitmap[], int16_t w, int16_t h, uint8_t brightness) {
+                const uint8_t bitmap[], int16_t w, int16_t h, uint8_t brightness) {
 
   int16_t byteWidth = (w + 7) / 8; // Bitmap scanline pad = whole byte
   uint8_t dot = 0;
 
-  for(int16_t j=0; j<h; j++, y++) {
-      for(int16_t i=0; i<w; i++) {
-          if(i & 7) dot <<= 1;
-          else      dot   = pgm_read_byte(&bitmap[j * byteWidth + i / 8]);
-          if(dot & 0x80) drawPixel(x+i, y, getGradientPixel(j, i, brightness));
-      }
+  for (int16_t j = 0; j < h; j++, y++) {
+    for (int16_t i = 0; i < w; i++) {
+      if (i & 7) dot <<= 1;
+      else      dot   = pgm_read_byte(&bitmap[j * byteWidth + i / 8]);
+      if (dot & 0x80) drawPixel(x + i, y, getGradientPixel(j, i, brightness));
+    }
   }
 }
 
-// Draw a single character. 
+// Draw a single character.
 // Made for a custom font with some useful sprites. Char size 4 x 6
 // Uses less memory than display.print()
 void drawChar(int8_t x, int8_t y, char ch) {
@@ -320,16 +320,16 @@ void drawChar(int8_t x, int8_t y, char ch) {
   uint8_t bOffset;
   uint8_t b;
   uint8_t line = 0;
-  
+
   // Find the character
   while (CHAR_MAP[c] != ch && CHAR_MAP[c] != '\0') c++;
 
-  bOffset = c / 2;   
-  for (;line<CHAR_HEIGHT; line++) {
+  bOffset = c / 2;
+  for (; line < CHAR_HEIGHT; line++) {
     b = pgm_read_byte(bmp_font + (line * bmp_font_width + bOffset));
-    for (n=0; n<CHAR_WIDTH; n++) 
-      if (read_bit(b, (c%2==0?0:4) + n)) 
-        drawPixel(x+n, y+line, 1, false);
+    for (n = 0; n < CHAR_WIDTH; n++)
+      if (read_bit(b, (c % 2 == 0 ? 0 : 4) + n))
+        drawPixel(x + n, y + line, 1, false);
   }
 }
 
@@ -368,3 +368,4 @@ void drawText(int8_t x, int8_t y, int num) {
 }
 
 #endif
+

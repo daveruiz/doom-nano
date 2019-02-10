@@ -8,7 +8,7 @@
 #define K_DOWN      9
 #define K_FIRE      10
 
-void setupInput(); 
+void setupInput();
 void readInput();
 
 // Input states
@@ -36,3 +36,4 @@ void readInput() {
 }
 
 #endif
+
