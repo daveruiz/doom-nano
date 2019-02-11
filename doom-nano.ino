@@ -234,10 +234,6 @@ bool isDozed(uint16_t uid) {
 }
 
 uint16_t detectCollision(Coords *pos, double relative_x, double relative_y, bool only_walls = false) {
-  uint8_t type;
-  uint16_t distance;
-  uint8_t i = 0;
-
   // Wall collision
   uint8_t round_x = int(pos->x + relative_x);
   uint8_t round_y = int(pos->y + relative_y);
@@ -252,13 +248,13 @@ uint16_t detectCollision(Coords *pos, double relative_x, double relative_y, bool
   }
 
   // Entity collision
-  for (; i < num_entities; i++) {
+  for (uint8_t i=0; i < num_entities; i++) {
     // Don't collide with itself
     if (&(entity[i].pos) == pos) {
       continue;
     }
 
-    type = getTypeFromUID(entity[i].uid);
+    uint8_t type = getTypeFromUID(entity[i].uid);
 
     // Only ALIVE enemy collision
     if (type != E_ENEMY || entity[i].state == S_DEAD || entity[i].state == S_HIDDEN) {
@@ -266,7 +262,7 @@ uint16_t detectCollision(Coords *pos, double relative_x, double relative_y, bool
     }
 
     Coords new_coords = { entity[i].pos.x - relative_x, entity[i].pos.y - relative_y };
-    distance = dist_p(pos, new_coords);
+    uint16_t distance = dist_p(pos, new_coords);
 
     // Check distance and if itÂ´s getting closer
     if (distance < ENEMY_COLLIDER_DIST && distance < entity[i].distance) {
@@ -275,6 +271,28 @@ uint16_t detectCollision(Coords *pos, double relative_x, double relative_y, bool
   }
 
   return 0;
+}
+
+// Shoot
+void fire() {
+  for (uint8_t i = 0; i < num_entities; i++) {
+    uint8_t type = getTypeFromUID(entity[i].uid);
+
+    // Shoot only ALIVE enemies
+    if (type != E_ENEMY || entity[i].state == S_DEAD || entity[i].state == S_HIDDEN) {
+      continue;
+    }
+
+    Coords transform = translateIntoView(&(entity[i].pos));
+    if (abs(transform.x) < 20 && transform.y > 0) {
+      uint8_t damage = (double) GUN_MAX_DAMAGE / (abs(transform.x) * entity[i].distance) / 5;
+      if (damage > 0) {
+        entity[i].health = max(0, entity[i].health - damage);
+        entity[i].state = S_HIT;
+        entity[i].timer = 4;
+      }
+    }
+  }
 }
 
 // Update coords if possible. Return the collided uid, if any
@@ -430,29 +448,20 @@ void updateEntities() {
 
 // The map raycaster. Based on https://lodev.org/cgtutor/raycasting.html
 void renderMap(const uint8_t level[], double view_height) {
-  double camera_x;
-  double ray_x; double ray_y;
-  uint8_t map_x; uint8_t map_y;
-  double side_x; double side_y;
-  double delta_x; double delta_y;
-  char step_x; char step_y;
-  bool hit;
-  bool side;
-  uint8_t depth;
-  double distance;
-  uint8_t line_height;
-  uint8_t block;
-  uint16_t uid;
-
   for (uint8_t x = 0; x < SCREEN_WIDTH; x += RES_DIVIDER) {
-    camera_x = 2 * (double) x / SCREEN_WIDTH - 1;
-    ray_x = player.dir.x + player.plane.x * camera_x;
-    ray_y = player.dir.y + player.plane.y * camera_x;
-    map_x = uint8_t(player.pos.x);
-    map_y = uint8_t(player.pos.y);
+    double camera_x = 2 * (double) x / SCREEN_WIDTH - 1;
+    double ray_x = player.dir.x + player.plane.x * camera_x;
+    double ray_y = player.dir.y + player.plane.y * camera_x;
+    uint8_t map_x = uint8_t(player.pos.x);
+    uint8_t map_y = uint8_t(player.pos.y);
     Coords map_coords = { map_x, map_y };
-    delta_x = abs(1 / ray_x);
-    delta_y = abs(1 / ray_y);
+    double delta_x = abs(1 / ray_x);
+    double delta_y = abs(1 / ray_y);
+
+    int8_t step_x; 
+    int8_t step_y;
+    double side_x;
+    double side_y;
 
     if (ray_x < 0) {
       step_x = -1;
@@ -471,8 +480,9 @@ void renderMap(const uint8_t level[], double view_height) {
     }
 
     // Wall detection
-    depth = 0;
-    hit = 0;
+    uint8_t depth = 0;
+    bool hit = 0;
+    bool side; 
     while (!hit && depth < MAX_RENDER_DEPTH) {
       if (side_x < side_y) {
         side_x += delta_x;
@@ -484,7 +494,7 @@ void renderMap(const uint8_t level[], double view_height) {
         side = 1;
       }
 
-      block = getBlockAt(level, map_x, map_y);
+      uint8_t block = getBlockAt(level, map_x, map_y);
 
       if (isCollider(block)) {
         hit = 1;
@@ -495,7 +505,7 @@ void renderMap(const uint8_t level[], double view_height) {
         if (isSpawnable(block)) {
           // Check that it's close to the player
           if (dist(player.pos, map_coords) < MAX_ENTITY_DISTANCE) {
-            uid = getEntityUID(block, map_x, map_y);
+            uint16_t uid = getEntityUID(block, map_x, map_y);
             if (!isSpawned(uid)) {
               spawnEntity(uid, map_x, map_y);
             }
@@ -507,6 +517,8 @@ void renderMap(const uint8_t level[], double view_height) {
     }
 
     if (hit) {
+      double distance;
+      
       if (side == 0) {
         distance = max(1, (map_x - player.pos.x + (1 - step_x) / 2) / ray_x);
       } else {
@@ -517,7 +529,7 @@ void renderMap(const uint8_t level[], double view_height) {
       zbuffer[x / Z_RES_DIVIDER] = min(distance * DISTANCE_MULTIPLIER, 255);
 
       // rendered line height
-      line_height = RENDER_HEIGHT / distance;
+      uint8_t line_height = RENDER_HEIGHT / distance;
 
       drawVLine(
         x,
@@ -712,50 +724,24 @@ void renderStats() {
 
 // Intro screen
 void loopIntro() {
-  // fade in effect
-  for (uint8_t i = 0; i < 8; i++) {
-    drawBitmap(
-      (SCREEN_WIDTH - BMP_LOGO_WIDTH) / 2,
-      (SCREEN_HEIGHT - BMP_LOGO_HEIGHT) / 3,
-      bmp_logo_bits,
-      BMP_LOGO_WIDTH,
-      BMP_LOGO_HEIGHT,
-      i
-    );
-    display.display();
-    delay(80);
-  }
+  display.drawBitmap(
+    (SCREEN_WIDTH - BMP_LOGO_WIDTH) / 2,
+    (SCREEN_HEIGHT - BMP_LOGO_HEIGHT) / 3,
+    bmp_logo_bits,
+    BMP_LOGO_WIDTH,
+    BMP_LOGO_HEIGHT,
+    1
+  );
 
   delay(1000);
   drawText(SCREEN_WIDTH / 2 - 25, SCREEN_HEIGHT * .8, F("PRESS FIRE"));
   display.display();
 
   // wait for fire
-  do {
+  while (!exit_scene) {
     readInput();
     if (p_fire) jumpTo(GAME_PLAY);
-  } while (!exit_scene);
-}
-
-void fire() {
-  for (uint8_t i = 0; i < num_entities; i++) {
-    uint8_t type = getTypeFromUID(entity[i].uid);
-
-    // Shoot only ALIVE enemies
-    if (type != E_ENEMY || entity[i].state == S_DEAD || entity[i].state == S_HIDDEN) {
-      continue;
-    }
-
-    Coords transform = translateIntoView(&(entity[i].pos));
-    if (abs(transform.x) < 20 && transform.y > 0) {
-      uint8_t damage = (double) GUN_MAX_DAMAGE / (abs(transform.x) * entity[i].distance) / 5;
-      if (damage > 0) {
-        entity[i].health = max(0, entity[i].health - damage);
-        entity[i].state = S_HIT;
-        entity[i].timer = 4;
-      }
-    }
-  }
+  };
 }
 
 void loopGamePlay() {
@@ -766,9 +752,9 @@ void loopGamePlay() {
   double old_plane_x;
   double view_height;
   double jogging;
+  uint8_t fade = GRADIENT_COUNT - 1;
 
   initializeLevel(sto_level_1);
-  renderHud();
 
   do {
     fps();
@@ -854,7 +840,19 @@ void loopGamePlay() {
     renderMap(sto_level_1, view_height);
     renderEntities(view_height);
     renderGun(gun_pos, jogging);
-    renderStats();
+
+    // Fade in effect
+    if (fade > 0) {
+      fadeScreen(fade);
+      fade--;
+
+      if (fade == 0) {
+        // Only draw the hud after fade in effect
+        renderHud();
+      }
+    } else {
+      renderStats();
+    }
 
     // flash screen
     if (flash_screen > 0) {
@@ -887,7 +885,12 @@ void loop(void) {
       }
   }
 
+  // fade out effect
+  for (uint8_t i=0; i<GRADIENT_COUNT; i++) {
+    fadeScreen(i, 0);
+    display.display();
+    delay(40);
+  }
   exit_scene = false;
-  meltScreen();
 }
 

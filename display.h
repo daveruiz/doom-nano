@@ -39,15 +39,13 @@ const static uint8_t PROGMEM bit_mask[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
 
 void setupDisplay();
 void fps();
-bool getMeltedPixel(uint8_t x, uint8_t y);
-void meltScreen();
 bool getGradientPixel(uint8_t x, uint8_t y, uint8_t i);
+void fadeScreen(uint8_t intensity, bool color);
 void drawByte(uint8_t x, uint8_t y, uint8_t b);
 uint8_t getByte(uint8_t x, uint8_t y);
 void drawPixel(int8_t x, int8_t y, bool color, bool raycasterViewport);
 void drawVLine(int8_t x, int8_t start_y, int8_t end_y, uint8_t intensity);
 void drawSprite(int8_t x, int8_t y, const uint8_t bitmap[], const uint8_t mask[], int16_t w, int16_t h, uint8_t sprite, double distance);
-void drawBitmap(int8_t x, int8_t y, const uint8_t bitmap[], int16_t w, int16_t h, uint8_t brightness);
 void drawChar(int8_t x, int8_t y, char ch);
 void drawText(int8_t x, int8_t y, char *txt, uint8_t space = 1);
 void drawText(int8_t x, int8_t y, __FlashStringHelper txt, uint8_t space = 1);
@@ -97,22 +95,6 @@ double getActualFps() {
   return 1000 / (FRAME_TIME * delta);
 }
 
-// Helper for melting screen. Picks the relative pixel after melt effect
-// Similar to adafruit::getPixel but removed some checks to make it faster.
-bool getMeltedPixel(uint8_t frame, uint8_t x, uint8_t y) {
-  uint8_t offset = F_char(MELT_OFFSETS, x % MELT_OFFSETS_SIZE) - 48; // get "random:" numbers from 0 - 9
-  int8_t dy = frame < offset ? y : y - MELT_SPEED;
-
-  // Return black
-  if (dy < 0) return false;
-
-#ifdef OPTIMIZE_SSD1306
-  return display_buf[x + (dy / 8) * SCREEN_WIDTH] & (1 << (dy & 7));
-#else
-  return display.getPixel(x, dy);
-#endif
-}
-
 // Faster way to render vertical bits
 void drawByte(uint8_t x, uint8_t y, uint8_t b) {
 #ifdef OPTIMIZE_SSD1306
@@ -120,47 +102,8 @@ void drawByte(uint8_t x, uint8_t y, uint8_t b) {
 #endif
 }
 
-// Melt the screen DOOM style
-void meltScreen() {
-  uint8_t frames = 0;
-  uint8_t x;
-  int8_t y;
-
-  do {
-    fps();
-
-#ifdef OPTIMIZE_SSD1306
-    // The screen distribution is 8 rows of 128x8 pixels
-    for (y = SCREEN_HEIGHT - 8; y >= 0; y -= 8) {
-      for (x = 0; x < SCREEN_WIDTH;  x++) {
-        drawByte(x, y,
-                 (getMeltedPixel(frames, x, y + 7) << 7)
-                 | (getMeltedPixel(frames, x, y + 6) << 6)
-                 | (getMeltedPixel(frames, x, y + 5) << 5)
-                 | (getMeltedPixel(frames, x, y + 4) << 4)
-                 | (getMeltedPixel(frames, x, y + 3) << 3)
-                 | (getMeltedPixel(frames, x, y + 2) << 2)
-                 | (getMeltedPixel(frames, x, y + 1) << 1)
-                 | getMeltedPixel(frames, x, y)
-                );
-      }
-    }
-#else
-    for (y = SCREEN_HEIGHT; y >= 0; y--) {
-      for (x = 0; x < SCREEN_WIDTH;  x++) {
-        display.drawPixel(x, y, getMeltedPixel(frames, x, y));
-      }
-    }
-#endif
-
-    display.display();
-
-    frames++;
-  } while (frames < 30);
-}
-
 boolean getGradientPixel(uint8_t x, uint8_t y, uint8_t i) {
-  if (i <= 0) return 0;
+  if (i == 0) return 0;
   if (i >= GRADIENT_COUNT - 1) return 1;
 
   uint8_t index = max(0, min(GRADIENT_COUNT - 1, i)) * GRADIENT_WIDTH * GRADIENT_HEIGHT // gradient index
@@ -169,6 +112,15 @@ boolean getGradientPixel(uint8_t x, uint8_t y, uint8_t i) {
 
   // return the bit based on x
   return read_bit(pgm_read_byte(gradient + index), x % 8);
+}
+
+void fadeScreen(uint8_t intensity, bool color = 0) {
+  for (uint8_t x = 0; x < SCREEN_WIDTH; x++) {
+    for (uint8_t y = 0; y < SCREEN_HEIGHT; y++) {
+      if (getGradientPixel(x, y, intensity)) 
+        drawPixel(x, y, color, false);
+    }
+  }
 }
 
 // Faster drawPixel than display.drawPixel.
@@ -290,23 +242,6 @@ void drawSprite(
           }
         }
       }
-    }
-  }
-}
-
-// Custom draw bitmap with brighness support
-// Note: is much more slower than display.drawBitmap
-void drawBitmap(int8_t x, int8_t y,
-                const uint8_t bitmap[], int16_t w, int16_t h, uint8_t brightness) {
-
-  int16_t byteWidth = (w + 7) / 8; // Bitmap scanline pad = whole byte
-  uint8_t dot = 0;
-
-  for (int16_t j = 0; j < h; j++, y++) {
-    for (int16_t i = 0; i < w; i++) {
-      if (i & 7) dot <<= 1;
-      else      dot   = pgm_read_byte(&bitmap[j * byteWidth + i / 8]);
-      if (dot & 0x80) drawPixel(x + i, y, getGradientPixel(j, i, brightness));
     }
   }
 }
