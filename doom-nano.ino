@@ -9,48 +9,6 @@
 #include "uid.h"
 // #include <MemoryFree.h>
 
-Input input(K_LEFT, K_RIGHT, K_UP, K_DOWN, K_FIRE);
-
-/*
-struct Coords {
-  double x;
-  double y;
-};
-*/
-
-/*
-struct Player {
-  Coords pos;
-  Coords dir;
-  Coords plane;
-  double velocity;
-  uint8_t health;
-  uint8_t keys;
-};
-*/
-
-/*
-// Spawned entities
-struct Entity {
-  uint16_t uid;
-  Coords pos;
-  uint8_t state;
-  uint8_t health;     // angle for fireballs
-  uint8_t distance;
-  uint8_t timer;
-};
-*/
-
-/*
-// Static entities
-struct StaticEntity {
-  uint8_t x;
-  uint8_t y;
-  uint16_t uid;
-  bool active;
-};
-*/
-
 // general
 uint8_t scene = INTRO;
 bool exit_scene = false;
@@ -91,21 +49,6 @@ void initializeLevel(const uint8_t level[]) {
     }
   }
 }
-
-// Generates a unique ID for each entity based in itÂ´s position and type
-// block types has 4 bits, so 16 possible combinations
-/*
-uint16_t getEntityUID(uint8_t block_type, uint8_t x, uint8_t y) {
-  return (y * LEVEL_WIDTH + x) * 16 + (block_type & 0b00001111);
-}
-*/
-
-// Calculate the type from the UID. So we donÂ´t need to read the map again
-/*
-uint8_t getTypeFromUID(uint16_t uid) {
-  return uid % 16;
-}
-*/
 
 uint8_t getBlockAt(const uint8_t level[], uint8_t x, uint8_t y) {
   if (x < 0 || x >= LEVEL_WIDTH || y < 0 || y >= LEVEL_HEIGHT) {
@@ -728,7 +671,7 @@ void loopIntro() {
 
   // wait for fire
   while (!exit_scene) {
-    if (input.fire()) jumpTo(GAME_PLAY);
+    if (input_fire()) jumpTo(GAME_PLAY);
   };
 }
 
@@ -753,10 +696,10 @@ void loopGamePlay() {
     // If the player is alive
     if (player.health > 0) {
       // Player speed
-      if (input.up()) {
+      if (input_up()) {
         player.velocity += (MOV_SPEED - player.velocity) * .4;
         jogging = abs(player.velocity) * MOV_SPEED_INV;
-      } else if (input.down()) {
+      } else if (input_down()) {
         player.velocity += (- MOV_SPEED - player.velocity) * .4;
         jogging = abs(player.velocity) * MOV_SPEED_INV;
       } else {
@@ -765,7 +708,7 @@ void loopGamePlay() {
       }
 
       // Player rotation
-      if (input.right()) {
+      if (input_right()) {
         rot_speed = ROT_SPEED * delta;
         old_dir_x = player.dir.x;
         player.dir.x = player.dir.x * cos(-rot_speed) - player.dir.y * sin(-rot_speed);
@@ -773,7 +716,7 @@ void loopGamePlay() {
         old_plane_x = player.plane.x;
         player.plane.x = player.plane.x * cos(-rot_speed) - player.plane.y * sin(-rot_speed);
         player.plane.y = old_plane_x * sin(-rot_speed) + player.plane.y * cos(-rot_speed);
-      } else if (input.left()) {
+      } else if (input_left()) {
         rot_speed = ROT_SPEED * delta;
         old_dir_x = player.dir.x;
         player.dir.x = player.dir.x * cos(rot_speed) - player.dir.y * sin(rot_speed);
@@ -792,19 +735,19 @@ void loopGamePlay() {
       } else if (gun_pos < GUN_TARGET_POS) {
         // Showing up
         gun_pos += 2;
-      } else if (!gun_fired && input.fire()) {
+      } else if (!gun_fired && input_fire()) {
         // ready to fire and fire pressed
         gun_pos = GUN_SHOT_POS;
         gun_fired = true;
         fire();
-      } else if (gun_fired && !input.fire()) {
+      } else if (gun_fired && !input_fire()) {
         // just fired and restored position
         gun_fired = false;
       }
     } else {
       // The player is dead
       if (view_height > -10) view_height--;
-      else if (input.fire()) jumpTo(INTRO);
+      else if (input_fire()) jumpTo(INTRO);
 
       if (gun_pos > 1) gun_pos -= 2;
     }
@@ -854,7 +797,7 @@ void loopGamePlay() {
     display.display();
 
     // Exit routine
-    if (input.left() && input.right()) {
+    if (input_left() && input_right()) {
       jumpTo(INTRO);
     }
   } while (!exit_scene);
