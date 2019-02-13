@@ -10,6 +10,8 @@
 #define K_FIRE              10
 
 // GFX settings
+#define OPTIMIZE_SSD1306                // Optimizations for SSD1366 displays
+
 #define FRAME_TIME          66.666666   // Desired time per frame in ms (66.666666 is ~15 fps)
 #define RES_DIVIDER         2           // Hgher values will result in lower horizontal resolution when rasterize and lower process and memory usage
                                         // Lower will require more process and memory, but looks nicer
@@ -25,19 +27,6 @@
 #define LEVEL_WIDTH         64
 #define LEVEL_HEIGHT        57
 #define LEVEL_SIZE          LEVEL_WIDTH / 2 * LEVEL_HEIGHT
-
-// Entity types (legend applies to level.h)
-#define E_FLOOR             0x0   // . (also null)
-#define E_WALL              0xF   // #
-#define E_PLAYER            0x1   // P
-#define E_ENEMY             0x2   // E
-#define E_DOOR              0x4   // D
-#define E_LOCKEDDOOR        0x5   // L
-#define E_EXIT              0x7   // X
-// collectable entities >= 0x8
-#define E_MEDIKIT           0x8   // M
-#define E_KEY               0x9   // K
-#define E_FIREBALL          0xA   // not in map
 
 // scenes
 #define INTRO                 0
@@ -70,17 +59,6 @@
 #define ENEMY_MELEE_DAMAGE    8
 #define ENEMY_FIREBALL_DAMAGE 20
 #define GUN_MAX_DAMAGE        15
-
-// entity status
-#define S_STAND               0
-#define S_ALERT               1
-#define S_FIRING              2
-#define S_MELEE               3
-#define S_HIT                 4
-#define S_DEAD                5
-#define S_HIDDEN              6
-#define S_OPEN                7
-#define S_CLOSE               8
 
 // useful macros
 #define swap(a, b)            do { typeof(a) temp = a; a = b; b = temp; } while (0)

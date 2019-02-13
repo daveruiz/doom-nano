@@ -5,8 +5,6 @@
 #include <Adafruit_SSD1306.h>
 #include "constants.h"
 
-#define OPTIMIZE_SSD1306                // Optimizations for SSD1366 displays
-
 #define SCREEN_WIDTH        128
 #define SCREEN_HEIGHT       64
 #define HALF_WIDTH          64

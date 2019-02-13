@@ -3,10 +3,8 @@
 #include "sprites.h"
 #include "display.h"
 #include "input.h"
-#include "player.h"
-#include "entity.h"
-#include "static_entity.h"
-#include "uid.h"
+#include "entities.h"
+#include "types.h"
 // #include <MemoryFree.h>
 
 // general
@@ -166,11 +164,11 @@ void removeStaticEntity(UID uid) {
   }
 }
 
-UID detectCollision(Coords *pos, double relative_x, double relative_y, bool only_walls = false) {
+UID detectCollision(const uint8_t level[], Coords *pos, double relative_x, double relative_y, bool only_walls = false) {
   // Wall collision
   uint8_t round_x = int(pos->x + relative_x);
   uint8_t round_y = int(pos->y + relative_y);
-  uint8_t block = getBlockAt(sto_level_1, round_x, round_y);
+  uint8_t block = getBlockAt(level, round_x, round_y);
 
   if (block == E_WALL) {
     return create_uid(block, round_x, round_y);
@@ -227,17 +225,17 @@ void fire() {
 }
 
 // Update coords if possible. Return the collided uid, if any
-UID updatePosition(Coords *pos, double relative_x, double relative_y, bool only_walls = false) {
-  UID collide_x = detectCollision(pos, relative_x, 0, only_walls);
-  UID collide_y = detectCollision(pos, 0, relative_y, only_walls);
+UID updatePosition(const uint8_t level[], Coords *pos, double relative_x, double relative_y, bool only_walls = false) {
+  UID collide_x = detectCollision(level, pos, relative_x, 0, only_walls);
+  UID collide_y = detectCollision(level, pos, 0, relative_y, only_walls);
 
-  if (collide_x) pos->x += relative_x;
-  if (collide_y) pos->y += relative_y;
+  if (!collide_x) pos->x += relative_x;
+  if (!collide_y) pos->y += relative_y;
 
   return collide_x || collide_y || UID_null;
 }
 
-void updateEntities() {
+void updateEntities(const uint8_t level[]) {
   uint8_t i = 0;
   while (i < num_entities) {
     // update distance
@@ -297,6 +295,7 @@ void updateEntities() {
                 } else {
                   // move towards to the player.
                   updatePosition(
+                    level,
                     &(entity[i].pos),
                     sign(player.pos.x, entity[i].pos.x) * ENEMY_SPEED * delta,
                     sign(player.pos.y, entity[i].pos.y) * ENEMY_SPEED * delta,
@@ -336,6 +335,7 @@ void updateEntities() {
             // Move. Only collide with walls.
             // Note: using health to store the angle of the movement
             UID collided = updatePosition(
+              level,
               &(entity[i].pos),
               cos((double) entity[i].health / FIREBALL_ANGLES * PI) * FIREBALL_SPEED,
               sin((double) entity[i].health / FIREBALL_ANGLES * PI) * FIREBALL_SPEED,
@@ -754,6 +754,7 @@ void loopGamePlay() {
     // Player movement
     if (abs(player.velocity) > 0.003) {
       updatePosition(
+        sto_level_1,
         &(player.pos),
         player.dir.x * player.velocity * delta,
         player.dir.y * player.velocity * delta
@@ -763,7 +764,7 @@ void loopGamePlay() {
     }
 
     // Update things
-    updateEntities();
+    updateEntities(sto_level_1);
 
     // Render stuff
     renderMap(sto_level_1, view_height);

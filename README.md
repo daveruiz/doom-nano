@@ -1,7 +1,7 @@
 # doom-nano
 A 3d raycast engine for Arduino
 
-![](/screen-1.jpg?raw=true)
+![](/images/screen-1.jpg?raw=true)
 
 See it in action --->
 https://youtu.be/FX7PQtUAkHk (Progress at Jan, 20 2019)
@@ -42,7 +42,7 @@ To do:
 - Sound/Music? Hmmm I wish so, but...
 
 More screens (outdated):
-![](/screen-4.jpg?raw=true)
-![](/screen-5.jpg?raw=true)
-![](/screen-6.jpg?raw=true)
-![](/screen-7.jpg?raw=true)
+![](/images/screen-4.jpg?raw=true)
+![](/images/screen-5.jpg?raw=true)
+![](/images/screen-6.jpg?raw=true)
+![](/images/screen-7.jpg?raw=true)
