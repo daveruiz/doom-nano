@@ -1,39 +1,23 @@
-#ifndef doom_input_h
-#define doom_input_h
+#ifndef _input_h
+#define _input_h
 
-// Key pinout
-#define K_LEFT      6
-#define K_RIGHT     7
-#define K_UP        8
-#define K_DOWN      9
-#define K_FIRE      10
+class Input {
+  private:
+    uint8_t p_up;
+    uint8_t p_down;
+    uint8_t p_left;
+    uint8_t p_right;
+    uint8_t p_fire;
+  
+  public:
+    bool up();
+    bool down();
+    bool left();
+    bool right();
+    bool fire();
 
-void setupInput();
-void readInput();
-
-// Input states
-boolean p_up = false;
-boolean p_down = false;
-boolean p_left = false;
-boolean p_right = false;
-boolean p_fire = false;
-
-void setupInput() {
-  // Enable pin inputs
-  pinMode(K_LEFT, INPUT);
-  pinMode(K_RIGHT, INPUT);
-  pinMode(K_UP, INPUT);
-  pinMode(K_DOWN, INPUT);
-  pinMode(K_FIRE, INPUT);
-}
-
-void readInput() {
-  p_left = digitalRead(K_LEFT) == HIGH;
-  p_right = digitalRead(K_RIGHT) == HIGH;
-  p_up = digitalRead(K_UP) == HIGH;
-  p_down = digitalRead(K_DOWN) == HIGH;
-  p_fire = digitalRead(K_FIRE) == HIGH;
-}
+    Input(uint8_t pin_left, uint8_t pin_right, uint8_t pin_up, uint8_t pin_down, uint8_t pin_fire);
+};
 
 #endif
 

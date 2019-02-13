@@ -1,5 +1,5 @@
-#ifndef doom_sprites_h
-#define doom_sprites_h
+#ifndef _sprites_h
+#define _sprites_h
 
 #define bmp_font_width   24  // in bytes
 #define bmp_font_height  6

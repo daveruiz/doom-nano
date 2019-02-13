@@ -1,23 +1,7 @@
-#ifndef doom_level_h
-#define doom_level_h
+#ifndef _level_h
+#define _level_h
 
-#define LEVEL_WIDTH   64
-#define LEVEL_HEIGHT  57
-#define LEVEL_SIZE    LEVEL_WIDTH / 2 * LEVEL_HEIGHT
-
-// Legend
-#define E_FLOOR       0x0   // .
-#define E_WALL        0xF   // #
-#define E_PLAYER      0x1   // P
-#define E_ENEMY       0x2   // E
-#define E_DOOR        0x4   // D
-#define E_LOCKEDDOOR  0x5   // L
-#define E_EXIT        0x7   // X
-
-// collectable entities
-#define E_MEDIKIT     0x8   // M
-#define E_KEY         0x9   // K
-#define E_FIREBALL    0xA   // not in map
+#include "constants.h";
 
 /*
   Based on E1M1 from Wolfenstein 3D

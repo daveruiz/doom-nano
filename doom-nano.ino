@@ -1,61 +1,24 @@
+#include "constants.h"
 #include "level.h"
 #include "sprites.h"
 #include "display.h"
 #include "input.h"
+#include "player.h"
+#include "entity.h"
+#include "static_entity.h"
+#include "uid.h"
 // #include <MemoryFree.h>
 
-// scenes
-#define INTRO                 0
-#define GAME_PLAY             1
+Input input(K_LEFT, K_RIGHT, K_UP, K_DOWN, K_FIRE);
 
-// game
-#define GUN_TARGET_POS        18
-#define GUN_SHOT_POS          GUN_TARGET_POS + 4
-#define ROT_SPEED             .12
-#define MOV_SPEED             .2
-#define MOV_SPEED_INV         5           // 1 / MOV_SPEED
-#define JOGGING_SPEED         .005
-#define ENEMY_SPEED           .02
-#define FIREBALL_SPEED        .2
-
-#define MAX_ENTITIES          8           // Max num of active entities
-#define MAX_DOZED_ENTITIES    28          // Max num of entities in sleep mode
-#define FIREBALL_ANGLES       45          // Num of angles per PI
-
-#define MAX_ENTITY_DISTANCE   200         // * DISTANCE_MULTIPLIER
-#define MAX_ENEMY_VIEW        80          // * DISTANCE_MULTIPLIER
-#define ITEM_COLLIDER_DIST    6           // * DISTANCE_MULTIPLIER
-#define ENEMY_COLLIDER_DIST   4           // * DISTANCE_MULTIPLIER
-#define FIREBALL_COLLIDER_DIST 2          // * DISTANCE_MULTIPLIER
-#define ENEMY_MELEE_DIST      6           // * DISTANCE_MULTIPLIER
-#define WALL_COLLIDER_DIST    .2
-
-#define ENEMY_MELEE_DAMAGE    8
-#define ENEMY_FIREBALL_DAMAGE 20
-#define GUN_MAX_DAMAGE        15
-
-// entity status
-#define S_STAND               0
-#define S_ALERT               1
-#define S_FIRING              2
-#define S_MELEE               3
-#define S_HIT                 4
-#define S_DEAD                5
-#define S_HIDDEN              6
-
-// useful macros
-#define swap(a, b)            do { typeof(a) temp = a; a = b; b = temp; } while (0)
-#define sign(a, b)            (double) (a > b ? 1 : (b > a ? -1 : 0))
-#define dist(pos_a, pos_b)    sqrt(sq(pos_a.x - pos_b.x) + sq(pos_a.y - pos_b.y)) * DISTANCE_MULTIPLIER
-#define dist_p(pos_p_a, pos_b)  sqrt(sq(pos_p_a->x - pos_b.x) + sq(pos_p_a->y - pos_b.y)) * DISTANCE_MULTIPLIER
-#define isSpawnable(block)    (block == E_ENEMY || block & 0b00001000) /* all collectable items */
-#define isCollider(block)     (block == E_WALL)
-
+/*
 struct Coords {
   double x;
   double y;
 };
+*/
 
+/*
 struct Player {
   Coords pos;
   Coords dir;
@@ -64,7 +27,9 @@ struct Player {
   uint8_t health;
   uint8_t keys;
 };
+*/
 
+/*
 // Spawned entities
 struct Entity {
   uint16_t uid;
@@ -74,14 +39,17 @@ struct Entity {
   uint8_t distance;
   uint8_t timer;
 };
+*/
 
+/*
 // Static entities
-struct DozedEntity {
+struct StaticEntity {
   uint8_t x;
   uint8_t y;
   uint16_t uid;
   bool active;
 };
+*/
 
 // general
 uint8_t scene = INTRO;
@@ -91,17 +59,15 @@ uint8_t flash_screen = 0;
 
 // game
 // player and entities
-Player player;
+Player player(0, 0);
 Entity entity[MAX_ENTITIES];
-DozedEntity dozed_entity[MAX_DOZED_ENTITIES];
+StaticEntity static_entity[MAX_STATIC_ENTITIES];
 uint8_t num_entities = 0;
-uint8_t num_dozed_entities = 0;
 uint8_t num_static_entities = 0;
 
 void setup(void) {
   Serial.begin(9600);
   setupDisplay();
-  setupInput();
 }
 
 // Jump to another scene
@@ -117,23 +83,29 @@ void initializeLevel(const uint8_t level[]) {
       uint8_t block = getBlockAt(level, x, y);
 
       if (block == E_PLAYER) {
-        player = { { .5 + x, .5 + y }, { 1, 0 }, { 0, -0.66 }, 0, 100, 0 };
+        player = Player(x, y);
         return;
       }
+
+      // todo create other static entities
     }
   }
 }
 
 // Generates a unique ID for each entity based in itÂ´s position and type
 // block types has 4 bits, so 16 possible combinations
+/*
 uint16_t getEntityUID(uint8_t block_type, uint8_t x, uint8_t y) {
   return (y * LEVEL_WIDTH + x) * 16 + (block_type & 0b00001111);
 }
+*/
 
 // Calculate the type from the UID. So we donÂ´t need to read the map again
+/*
 uint8_t getTypeFromUID(uint16_t uid) {
   return uid % 16;
 }
+*/
 
 uint8_t getBlockAt(const uint8_t level[], uint8_t x, uint8_t y) {
   if (x < 0 || x >= LEVEL_WIDTH || y < 0 || y >= LEVEL_HEIGHT) {
@@ -146,34 +118,48 @@ uint8_t getBlockAt(const uint8_t level[], uint8_t x, uint8_t y) {
          & 0b1111;               // mask wanted bits
 }
 
-void spawnEntity(uint16_t uid, uint8_t x, uint8_t y) {
+bool isSpawned(UID uid) {
+  for (uint8_t i = 0; i < num_entities; i++) {
+    if (entity[i].is(uid)) return true;
+  }
+
+  return false;
+}
+
+bool isStatic(UID uid) {
+  for (uint8_t i = 0; i < num_static_entities; i++) {
+    if (static_entity[i].is(uid)) return true;
+  }
+
+  return false;
+}
+
+void spawnEntity(uint8_t type, uint8_t x, uint8_t y) {
   // Limit the number of spawned entities
   if (num_entities >= MAX_ENTITIES) {
     return;
   }
 
-  uint8_t type = getTypeFromUID(uid);
-
-  // todo: read dozed entity status
+  // todo: read static entity status
 
   switch (type) {
     case E_ENEMY:
       if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = { uid, { .5 + x, .5 + y }, S_STAND, 20, 0 };
+        entity[num_entities] = instantiate_enemy(x, y);
         num_entities++;
       }
       break;
 
     case E_KEY:
       if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = { uid, { .5 + x, .5 + y }, S_STAND, 0, 0 };
+        entity[num_entities] = instantiate_medikit(x, y);
         num_entities++;
       }
       break;
 
     case E_MEDIKIT:
       if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = { uid, { .5 + x, .5 + y }, S_STAND, 0, 0 };
+        entity[num_entities] = instantiate_key(x, y);
         num_entities++;
       }
       break;
@@ -186,23 +172,23 @@ void spawnFireball(double x, double y) {
     return;
   }
 
-  uint16_t uid = getEntityUID(E_FIREBALL, int(x), int(y));
+  UID uid(E_FIREBALL, x, y);
   // Remove if already exists, donÂ´t throw anything. Not the best, but shouldnÂ´t happen too often
   if (isSpawned(uid)) return;
 
   // Calculate direction. 32 angles
   int16_t dir = FIREBALL_ANGLES + atan2(y - player.pos.y, x - player.pos.x) / PI * FIREBALL_ANGLES;
   if (dir < 0) dir += FIREBALL_ANGLES * 2;
-  entity[num_entities] = { uid, { x, y }, S_STAND, dir, 0 };
+  entity[num_entities] = instantiate_fireball(x, y, dir);
   num_entities++;
 }
 
-void removeEntity(uint16_t uid) {
+void removeEntity(UID uid, bool makeStatic = false) {
   uint8_t i = 0;
   bool found = false;
 
   while (i < num_entities) {
-    if (!found && entity[i].uid == uid) {
+    if (!found && entity[i].is(uid)) {
       // todo: doze it
       found = true;
       num_entities--;
@@ -217,34 +203,37 @@ void removeEntity(uint16_t uid) {
   }
 }
 
-bool isSpawned(uint16_t uid) {
-  for (uint8_t i = 0; i < num_entities; i++) {
-    if (entity[i].uid == uid) return true;
-  }
+void removeStaticEntity(UID uid) {
+  uint8_t i = 0;
+  bool found = false;
 
-  return false;
+  while (i < num_static_entities) {
+    if (!found && static_entity[i].is(uid)) {
+      found = true;
+      num_static_entities--;
+    }
+
+    // displace entities
+    if (found) {
+      static_entity[i] = static_entity[i + 1];
+    }
+
+    i++;
+  }
 }
 
-bool isDozed(uint16_t uid) {
-  for (uint8_t i = 0; i < num_dozed_entities; i++) {
-    if (dozed_entity[i].uid == uid) return true;
-  }
-
-  return false;
-}
-
-uint16_t detectCollision(Coords *pos, double relative_x, double relative_y, bool only_walls = false) {
+UID detectCollision(Coords *pos, double relative_x, double relative_y, bool only_walls = false) {
   // Wall collision
   uint8_t round_x = int(pos->x + relative_x);
   uint8_t round_y = int(pos->y + relative_y);
   uint8_t block = getBlockAt(sto_level_1, round_x, round_y);
 
-  if (isCollider(block)) {
-    return getEntityUID(block, round_x, round_y);
+  if (block == E_WALL) {
+    return UID(block, round_x, round_y);
   }
 
   if (only_walls) {
-    return 0;
+    return UID_null;
   }
 
   // Entity collision
@@ -254,38 +243,36 @@ uint16_t detectCollision(Coords *pos, double relative_x, double relative_y, bool
       continue;
     }
 
-    uint8_t type = getTypeFromUID(entity[i].uid);
+    uint8_t type = entity[i].uid.getType();
 
     // Only ALIVE enemy collision
     if (type != E_ENEMY || entity[i].state == S_DEAD || entity[i].state == S_HIDDEN) {
       continue;
     }
 
-    Coords new_coords = { entity[i].pos.x - relative_x, entity[i].pos.y - relative_y };
-    uint16_t distance = dist_p(pos, new_coords);
+    Coords new_coords = Coords(entity[i].pos.x - relative_x, entity[i].pos.y - relative_y);
+    uint8_t distance = pos->distanceTo(new_coords);
 
-    // Check distance and if itÂ´s getting closer
+    // Check distance and if it´s getting closer
     if (distance < ENEMY_COLLIDER_DIST && distance < entity[i].distance) {
       return entity[i].uid;
     }
   }
 
-  return 0;
+  return UID_null;
 }
 
 // Shoot
 void fire() {
   for (uint8_t i = 0; i < num_entities; i++) {
-    uint8_t type = getTypeFromUID(entity[i].uid);
-
     // Shoot only ALIVE enemies
-    if (type != E_ENEMY || entity[i].state == S_DEAD || entity[i].state == S_HIDDEN) {
+    if (entity[i].uid.getType() != E_ENEMY || entity[i].state == S_DEAD || entity[i].state == S_HIDDEN) {
       continue;
     }
 
     Coords transform = translateIntoView(&(entity[i].pos));
     if (abs(transform.x) < 20 && transform.y > 0) {
-      uint8_t damage = (double) GUN_MAX_DAMAGE / (abs(transform.x) * entity[i].distance) / 5;
+      uint8_t damage = (double) min(GUN_MAX_DAMAGE, GUN_MAX_DAMAGE / (abs(transform.x) * entity[i].distance) / 5);
       if (damage > 0) {
         entity[i].health = max(0, entity[i].health - damage);
         entity[i].state = S_HIT;
@@ -296,21 +283,23 @@ void fire() {
 }
 
 // Update coords if possible. Return the collided uid, if any
-uint16_t updatePosition(Coords *pos, double relative_x, double relative_y, bool only_walls = false) {
-  uint16_t collide_x = detectCollision(pos, relative_x, 0, only_walls);
-  uint16_t collide_y = detectCollision(pos, 0, relative_y, only_walls);
+UID updatePosition(Coords *pos, double relative_x, double relative_y, bool only_walls = false) {
+  UID collide_x = detectCollision(pos, relative_x, 0, only_walls);
+  UID collide_y = detectCollision(pos, 0, relative_y, only_walls);
 
-  if (!collide_x) pos->x += relative_x;
-  if (!collide_y) pos->y += relative_y;
+  if (!collide_x.isNull()) pos->x += relative_x;
+  if (!collide_y.isNull()) pos->y += relative_y;
 
-  return collide_x || collide_y || 0;
+  return !collide_x.isNull()
+    ? collide_x
+    : (!collide_y.isNull() ? collide_y : UID_null);
 }
 
 void updateEntities() {
   uint8_t i = 0;
   while (i < num_entities) {
     // update distance
-    entity[i].distance = dist(player.pos, entity[i].pos);
+    entity[i].distance = player.pos.distanceTo(entity[i].pos);
 
     // Run the timer. Works with actual frames.
     // Todo: use delta here. But needs double type and more memory
@@ -329,7 +318,7 @@ void updateEntities() {
       continue;
     }
 
-    uint8_t type = getTypeFromUID(entity[i].uid);
+    uint8_t type = entity[i].uid.getType();
 
     switch (type) {
       case E_ENEMY: {
@@ -404,14 +393,14 @@ void updateEntities() {
           } else {
             // Move. Only collide with walls.
             // Note: using health to store the angle of the movement
-            uint16_t collided = updatePosition(
-                                  &(entity[i].pos),
-                                  cos((double) entity[i].health / FIREBALL_ANGLES * PI) * FIREBALL_SPEED,
-                                  sin((double) entity[i].health / FIREBALL_ANGLES * PI) * FIREBALL_SPEED,
-                                  true
-                                );
+            UID collided = updatePosition(
+              &(entity[i].pos),
+              cos((double) entity[i].health / FIREBALL_ANGLES * PI) * FIREBALL_SPEED,
+              sin((double) entity[i].health / FIREBALL_ANGLES * PI) * FIREBALL_SPEED,
+              true
+            );
 
-            if (collided) {
+            if (!collided.isNull()) {
               removeEntity(entity[i].uid);
               continue; // continue in the entity check loop
             }
@@ -454,7 +443,7 @@ void renderMap(const uint8_t level[], double view_height) {
     double ray_y = player.dir.y + player.plane.y * camera_x;
     uint8_t map_x = uint8_t(player.pos.x);
     uint8_t map_y = uint8_t(player.pos.y);
-    Coords map_coords = { map_x, map_y };
+    Coords map_coords = Coords(map_x, map_y);
     double delta_x = abs(1 / ray_x);
     double delta_y = abs(1 / ray_y);
 
@@ -496,18 +485,18 @@ void renderMap(const uint8_t level[], double view_height) {
 
       uint8_t block = getBlockAt(level, map_x, map_y);
 
-      if (isCollider(block)) {
+      if (block == E_WALL) {
         hit = 1;
       } else {
         // Spawning entities here, as soon they are visible for the
         // player. Not the best place, but would be a very performance
         // cost scan for them in another loop
-        if (isSpawnable(block)) {
+        if (block == E_ENEMY || (block & 0b00001000) /* all collectable items */) {
           // Check that it's close to the player
-          if (dist(player.pos, map_coords) < MAX_ENTITY_DISTANCE) {
-            uint16_t uid = getEntityUID(block, map_x, map_y);
+          if (player.pos.distanceTo(map_coords) < MAX_ENTITY_DISTANCE) {
+            UID uid = UID(block, map_x, map_y);
             if (!isSpawned(uid)) {
-              spawnEntity(uid, map_x, map_y);
+              spawnEntity(block, map_x, map_y);
             }
           }
         }
@@ -573,7 +562,7 @@ Coords translateIntoView(Coords *pos) {
   double transform_x = inv_det * (player.dir.y * sprite_x - player.dir.x * sprite_y);
   double transform_y = inv_det * (- player.plane.y * sprite_x + player.plane.x * sprite_y); // Z in screen
 
-  return { transform_x, transform_y };
+  return Coords(transform_x, transform_y);
 }
 
 void renderEntities(double view_height) {
@@ -591,7 +580,7 @@ void renderEntities(double view_height) {
 
     int16_t sprite_screen_x = HALF_WIDTH * (1.0 + transform.x / transform.y);
     int8_t sprite_screen_y = RENDER_HEIGHT / 2 + view_height / transform.y;
-    uint8_t type = getTypeFromUID(entity[i].uid);
+    uint8_t type = entity[i].uid.getType();
 
     // donÂ´t try to render if outside of screen
     // doing this pre-shortcut due int16 -> int8 conversion makes out-of-screen
@@ -739,8 +728,7 @@ void loopIntro() {
 
   // wait for fire
   while (!exit_scene) {
-    readInput();
-    if (p_fire) jumpTo(GAME_PLAY);
+    if (input.fire()) jumpTo(GAME_PLAY);
   };
 }
 
@@ -758,7 +746,6 @@ void loopGamePlay() {
 
   do {
     fps();
-    readInput();
 
     // Clear only the 3d view
     display.fillRect(0, 0, SCREEN_WIDTH, RENDER_HEIGHT, 0);
@@ -766,10 +753,10 @@ void loopGamePlay() {
     // If the player is alive
     if (player.health > 0) {
       // Player speed
-      if (p_up) {
+      if (input.up()) {
         player.velocity += (MOV_SPEED - player.velocity) * .4;
         jogging = abs(player.velocity) * MOV_SPEED_INV;
-      } else if (p_down) {
+      } else if (input.down()) {
         player.velocity += (- MOV_SPEED - player.velocity) * .4;
         jogging = abs(player.velocity) * MOV_SPEED_INV;
       } else {
@@ -778,7 +765,7 @@ void loopGamePlay() {
       }
 
       // Player rotation
-      if (p_right) {
+      if (input.right()) {
         rot_speed = ROT_SPEED * delta;
         old_dir_x = player.dir.x;
         player.dir.x = player.dir.x * cos(-rot_speed) - player.dir.y * sin(-rot_speed);
@@ -786,7 +773,7 @@ void loopGamePlay() {
         old_plane_x = player.plane.x;
         player.plane.x = player.plane.x * cos(-rot_speed) - player.plane.y * sin(-rot_speed);
         player.plane.y = old_plane_x * sin(-rot_speed) + player.plane.y * cos(-rot_speed);
-      } else if (p_left) {
+      } else if (input.left()) {
         rot_speed = ROT_SPEED * delta;
         old_dir_x = player.dir.x;
         player.dir.x = player.dir.x * cos(rot_speed) - player.dir.y * sin(rot_speed);
@@ -805,19 +792,19 @@ void loopGamePlay() {
       } else if (gun_pos < GUN_TARGET_POS) {
         // Showing up
         gun_pos += 2;
-      } else if (!gun_fired && p_fire) {
+      } else if (!gun_fired && input.fire()) {
         // ready to fire and fire pressed
         gun_pos = GUN_SHOT_POS;
         gun_fired = true;
         fire();
-      } else if (gun_fired && !p_fire) {
+      } else if (gun_fired && !input.fire()) {
         // just fired and restored position
         gun_fired = false;
       }
     } else {
       // The player is dead
       if (view_height > -10) view_height--;
-      else if (p_fire) jumpTo(INTRO);
+      else if (input.fire()) jumpTo(INTRO);
 
       if (gun_pos > 1) gun_pos -= 2;
     }
@@ -867,7 +854,7 @@ void loopGamePlay() {
     display.display();
 
     // Exit routine
-    if (p_left && p_right) {
+    if (input.left() && input.right()) {
       jumpTo(INTRO);
     }
   } while (!exit_scene);

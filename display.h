@@ -1,8 +1,9 @@
-#ifndef doom_display_h
-#define doom_display_h
+#ifndef _display_h
+#define _display_h
 
 #include <Wire.h>
 #include <Adafruit_SSD1306.h>
+#include "constants.h"
 
 #define OPTIMIZE_SSD1306                // Optimizations for SSD1366 displays
 
@@ -12,23 +13,6 @@
 #define RENDER_HEIGHT       56          // raycaster working height (rest is for hud)
 #define HALF_HEIGHT         32
 #define OLED_RESET          -1          // Reset pin # (or -1 if sharing Arduino reset pin)
-
-// GFX settings
-#define FRAME_TIME          66.666666   // Desired time per frame in ms (66.666666 is ~15 fps)
-#define RES_DIVIDER         2           // Hgher values will result in lower horizontal resolution when rasterize and lower process and memory usage
-                                        // Lower will require more process and memory, but looks nicer
-#define Z_RES_DIVIDER       2           // Zbuffer resolution divider. We sacrifice resolution to save memory
-#define DISTANCE_MULTIPLIER 20          // Distances are stored as uint8_t, mutiplying the distance we can obtain more precision taking care
-                                        // of keep numbers inside the type range. Max is 256 / MAX_RENDER_DEPTH
-#define MAX_RENDER_DEPTH    12
-#define MAX_SPRITE_DEPTH    8
-#define MELT_SPEED          6
-
-#define ZBUFFER_SIZE        SCREEN_WIDTH / Z_RES_DIVIDER
-
-// Optimizations
-#define MELT_OFFSETS_SIZE   64
-#define MELT_OFFSETS        F("1234543234323454343456754321234321234543456543131123123123125676534543312")
 
 // Reads a char from an F() string
 #define F_char(ifsh, ch)    pgm_read_byte(reinterpret_cast<PGM_P>(ifsh) + ch)
