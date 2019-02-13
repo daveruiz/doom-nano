@@ -3,16 +3,21 @@
 
 #include "coords.h";
 
-class Player { 
-  public:
-    Coords pos;
-    Coords dir;
-    Coords plane;
-    double velocity;
-    uint8_t health;
-    uint8_t keys;  
+#define create_player(x, y)   { \
+    coords((double) x + 0.5, (double) y + 0.5), \
+    coords(1, 0), \
+    coords(0, -0.66), \
+    0, \
+    100,  \
+  }
 
-    Player(uint8_t x, uint8_t y);
+struct Player { 
+  Coords pos;
+  Coords dir;
+  Coords plane;
+  double velocity;
+  uint8_t health;
+  uint8_t keys;  
 };
 
 #endif

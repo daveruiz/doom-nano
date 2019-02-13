@@ -5,40 +5,9 @@
 #include "uid.h"
 #include "constants.h"
 
-Entity::Entity(): 
-  uid(UID(E_FLOOR, 0, 0)), 
-  pos({ 0, 0 }),
-  state(S_HIDDEN),
-  health(0) { }
-
-Entity::Entity(uint8_t type, uint8_t x,  uint8_t y, uint8_t initialState, uint8_t initialHealth):
-  uid(UID(type, x, y)),
-  pos({ (double) x + .5, (double) y + .5 }),
-  state(initialState),
-  health(initialHealth) { }
-
-Entity::Entity(StaticEntity staticEntity) :
-  uid(staticEntity.uid),
-  pos({ staticEntity.x, staticEntity.y }),
-  state(S_STAND),
-  health(100) { }
-
-Entity instantiate_from_static(StaticEntity staticEntity) {
-  return Entity(staticEntity);
-}
-
-Entity instantiate_enemy(uint8_t x, uint8_t y) {
-  return Entity(E_ENEMY, x, y, S_STAND, 100);
-}
-
-Entity instantiate_medikit(uint8_t x, uint8_t y) {
-  return Entity(E_MEDIKIT, x, y, S_STAND, 0);
-}
-
-Entity instantiate_key(uint8_t x, uint8_t y) {
-  return Entity(E_KEY, x, y, S_STAND, 0);
-}
-
-Entity instantiate_fireball(uint8_t x, uint8_t y, uint8_t direction) {
-  return Entity(E_KEY, x, y, S_STAND, direction);
+Entity create_entity(uint8_t type, uint8_t x,  uint8_t y, uint8_t initialState, uint8_t initialHealth) {
+  UID uid = create_uid(type, x, y);
+  Coords pos = coords((double) x + .5, (double) y + .5);
+  Entity new_entity = { uid, pos, initialState, initialHealth, 0, 0 };
+  return new_entity;
 }

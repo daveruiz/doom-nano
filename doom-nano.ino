@@ -17,7 +17,7 @@ uint8_t flash_screen = 0;
 
 // game
 // player and entities
-Player player(0, 0);
+Player player;
 Entity entity[MAX_ENTITIES];
 StaticEntity static_entity[MAX_STATIC_ENTITIES];
 uint8_t num_entities = 0;
@@ -26,6 +26,7 @@ uint8_t num_static_entities = 0;
 void setup(void) {
   Serial.begin(9600);
   setupDisplay();
+  input_setup();
 }
 
 // Jump to another scene
@@ -41,7 +42,7 @@ void initializeLevel(const uint8_t level[]) {
       uint8_t block = getBlockAt(level, x, y);
 
       if (block == E_PLAYER) {
-        player = Player(x, y);
+        player = create_player(x, y);
         return;
       }
 
@@ -88,21 +89,21 @@ void spawnEntity(uint8_t type, uint8_t x, uint8_t y) {
   switch (type) {
     case E_ENEMY:
       if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = instantiate_enemy(x, y);
+        entity[num_entities] = create_enemy(x, y);
         num_entities++;
       }
       break;
 
     case E_KEY:
       if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = instantiate_medikit(x, y);
+        entity[num_entities] = create_medikit(x, y);
         num_entities++;
       }
       break;
 
     case E_MEDIKIT:
       if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = instantiate_key(x, y);
+        entity[num_entities] = create_key(x, y);
         num_entities++;
       }
       break;
@@ -115,14 +116,14 @@ void spawnFireball(double x, double y) {
     return;
   }
 
-  UID uid(E_FIREBALL, x, y);
+  UID uid = create_uid(E_FIREBALL, x, y);
   // Remove if already exists, donÂ´t throw anything. Not the best, but shouldnÂ´t happen too often
   if (isSpawned(uid)) return;
 
   // Calculate direction. 32 angles
   int16_t dir = FIREBALL_ANGLES + atan2(y - player.pos.y, x - player.pos.x) / PI * FIREBALL_ANGLES;
   if (dir < 0) dir += FIREBALL_ANGLES * 2;
-  entity[num_entities] = instantiate_fireball(x, y, dir);
+  entity[num_entities] = create_fireball(x, y, dir);
   num_entities++;
 }
 
@@ -172,7 +173,7 @@ UID detectCollision(Coords *pos, double relative_x, double relative_y, bool only
   uint8_t block = getBlockAt(sto_level_1, round_x, round_y);
 
   if (block == E_WALL) {
-    return UID(block, round_x, round_y);
+    return create_uid(block, round_x, round_y);
   }
 
   if (only_walls) {
@@ -435,7 +436,7 @@ void renderMap(const uint8_t level[], double view_height) {
         if (block == E_ENEMY || (block & 0b00001000) /* all collectable items */) {
           // Check that it's close to the player
           if (coords_distance(&(player.pos), &map_coords) < MAX_ENTITY_DISTANCE) {
-            UID uid = UID(block, map_x, map_y);
+            UID uid = create_uid(block, map_x, map_y);
             if (!isSpawned(uid)) {
               spawnEntity(block, map_x, map_y);
             }

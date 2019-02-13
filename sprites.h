@@ -1,6 +1,8 @@
 #ifndef _sprites_h
 #define _sprites_h
 
+#include <stdint.h>
+
 #define bmp_font_width   24  // in bytes
 #define bmp_font_height  6
 #define CHAR_MAP         " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.,-_(){}[]#"
