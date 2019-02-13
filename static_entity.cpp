@@ -21,7 +21,3 @@ StaticEntity::StaticEntity(UID uid, uint8_t x,  uint8_t y, bool active):
   x(x),
   y(y),
   active(active) { }
-
-bool StaticEntity::is(UID uid) {
-  return this->uid.is(uid);
-}

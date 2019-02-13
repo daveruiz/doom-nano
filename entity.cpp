@@ -7,25 +7,21 @@
 
 Entity::Entity(): 
   uid(UID(E_FLOOR, 0, 0)), 
-  pos(Coords(0, 0)),
+  pos({ 0, 0 }),
   state(S_HIDDEN),
   health(0) { }
 
 Entity::Entity(uint8_t type, uint8_t x,  uint8_t y, uint8_t initialState, uint8_t initialHealth):
   uid(UID(type, x, y)),
-  pos(Coords((double) x + .5, (double) y + .5)),
+  pos({ (double) x + .5, (double) y + .5 }),
   state(initialState),
   health(initialHealth) { }
 
 Entity::Entity(StaticEntity staticEntity) :
   uid(staticEntity.uid),
-  pos(staticEntity.x, staticEntity.y),
+  pos({ staticEntity.x, staticEntity.y }),
   state(S_STAND),
   health(100) { }
-
-bool Entity::is(UID uid) {
-  return uid.is(uid);
-}
 
 Entity instantiate_from_static(StaticEntity staticEntity) {
   return Entity(staticEntity);

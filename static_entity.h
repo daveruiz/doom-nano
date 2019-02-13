@@ -14,7 +14,6 @@ class StaticEntity  {
     StaticEntity();
     StaticEntity(uint8_t type, uint8_t x,  uint8_t y);
     StaticEntity(UID uid, uint8_t x,  uint8_t y, bool active);
-    bool is(UID uid);
 };
 
 #endif

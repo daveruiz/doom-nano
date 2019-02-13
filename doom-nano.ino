@@ -63,7 +63,7 @@ uint8_t getBlockAt(const uint8_t level[], uint8_t x, uint8_t y) {
 
 bool isSpawned(UID uid) {
   for (uint8_t i = 0; i < num_entities; i++) {
-    if (entity[i].is(uid)) return true;
+    if (entity[i].uid == uid) return true;
   }
 
   return false;
@@ -71,7 +71,7 @@ bool isSpawned(UID uid) {
 
 bool isStatic(UID uid) {
   for (uint8_t i = 0; i < num_static_entities; i++) {
-    if (static_entity[i].is(uid)) return true;
+    if (static_entity[i].uid == uid) return true;
   }
 
   return false;
@@ -131,7 +131,7 @@ void removeEntity(UID uid, bool makeStatic = false) {
   bool found = false;
 
   while (i < num_entities) {
-    if (!found && entity[i].is(uid)) {
+    if (!found && entity[i].uid == uid) {
       // todo: doze it
       found = true;
       num_entities--;
@@ -151,7 +151,7 @@ void removeStaticEntity(UID uid) {
   bool found = false;
 
   while (i < num_static_entities) {
-    if (!found && static_entity[i].is(uid)) {
+    if (!found && static_entity[i].uid == uid) {
       found = true;
       num_static_entities--;
     }
@@ -186,15 +186,15 @@ UID detectCollision(Coords *pos, double relative_x, double relative_y, bool only
       continue;
     }
 
-    uint8_t type = entity[i].uid.getType();
+    uint8_t type = uid_get_type(entity[i].uid);
 
     // Only ALIVE enemy collision
     if (type != E_ENEMY || entity[i].state == S_DEAD || entity[i].state == S_HIDDEN) {
       continue;
     }
 
-    Coords new_coords = Coords(entity[i].pos.x - relative_x, entity[i].pos.y - relative_y);
-    uint8_t distance = pos->distanceTo(new_coords);
+    Coords new_coords = { entity[i].pos.x - relative_x, entity[i].pos.y - relative_y };
+    uint8_t distance = coords_distance(pos, &new_coords);
 
     // Check distance and if it´s getting closer
     if (distance < ENEMY_COLLIDER_DIST && distance < entity[i].distance) {
@@ -209,7 +209,7 @@ UID detectCollision(Coords *pos, double relative_x, double relative_y, bool only
 void fire() {
   for (uint8_t i = 0; i < num_entities; i++) {
     // Shoot only ALIVE enemies
-    if (entity[i].uid.getType() != E_ENEMY || entity[i].state == S_DEAD || entity[i].state == S_HIDDEN) {
+    if (uid_get_type(entity[i].uid) != E_ENEMY || entity[i].state == S_DEAD || entity[i].state == S_HIDDEN) {
       continue;
     }
 
@@ -230,19 +230,17 @@ UID updatePosition(Coords *pos, double relative_x, double relative_y, bool only_
   UID collide_x = detectCollision(pos, relative_x, 0, only_walls);
   UID collide_y = detectCollision(pos, 0, relative_y, only_walls);
 
-  if (!collide_x.isNull()) pos->x += relative_x;
-  if (!collide_y.isNull()) pos->y += relative_y;
+  if (collide_x) pos->x += relative_x;
+  if (collide_y) pos->y += relative_y;
 
-  return !collide_x.isNull()
-    ? collide_x
-    : (!collide_y.isNull() ? collide_y : UID_null);
+  return collide_x || collide_y || UID_null;
 }
 
 void updateEntities() {
   uint8_t i = 0;
   while (i < num_entities) {
     // update distance
-    entity[i].distance = player.pos.distanceTo(entity[i].pos);
+    entity[i].distance = coords_distance(&(player.pos), &(entity[i].pos));
 
     // Run the timer. Works with actual frames.
     // Todo: use delta here. But needs double type and more memory
@@ -261,7 +259,7 @@ void updateEntities() {
       continue;
     }
 
-    uint8_t type = entity[i].uid.getType();
+    uint8_t type = uid_get_type(entity[i].uid);
 
     switch (type) {
       case E_ENEMY: {
@@ -343,7 +341,7 @@ void updateEntities() {
               true
             );
 
-            if (!collided.isNull()) {
+            if (collided) {
               removeEntity(entity[i].uid);
               continue; // continue in the entity check loop
             }
@@ -386,7 +384,7 @@ void renderMap(const uint8_t level[], double view_height) {
     double ray_y = player.dir.y + player.plane.y * camera_x;
     uint8_t map_x = uint8_t(player.pos.x);
     uint8_t map_y = uint8_t(player.pos.y);
-    Coords map_coords = Coords(map_x, map_y);
+    Coords map_coords = { map_x, map_y };
     double delta_x = abs(1 / ray_x);
     double delta_y = abs(1 / ray_y);
 
@@ -436,7 +434,7 @@ void renderMap(const uint8_t level[], double view_height) {
         // cost scan for them in another loop
         if (block == E_ENEMY || (block & 0b00001000) /* all collectable items */) {
           // Check that it's close to the player
-          if (player.pos.distanceTo(map_coords) < MAX_ENTITY_DISTANCE) {
+          if (coords_distance(&(player.pos), &map_coords) < MAX_ENTITY_DISTANCE) {
             UID uid = UID(block, map_x, map_y);
             if (!isSpawned(uid)) {
               spawnEntity(block, map_x, map_y);
@@ -505,7 +503,7 @@ Coords translateIntoView(Coords *pos) {
   double transform_x = inv_det * (player.dir.y * sprite_x - player.dir.x * sprite_y);
   double transform_y = inv_det * (- player.plane.y * sprite_x + player.plane.x * sprite_y); // Z in screen
 
-  return Coords(transform_x, transform_y);
+  return { transform_x, transform_y };
 }
 
 void renderEntities(double view_height) {
@@ -516,16 +514,16 @@ void renderEntities(double view_height) {
 
     Coords transform = translateIntoView(&(entity[i].pos));
 
-    // donÂ´t render if behind the player or too far away
+    // don´t render if behind the player or too far away
     if (transform.y <= 0.1 || transform.y > MAX_SPRITE_DEPTH) {
       continue;
     }
 
     int16_t sprite_screen_x = HALF_WIDTH * (1.0 + transform.x / transform.y);
     int8_t sprite_screen_y = RENDER_HEIGHT / 2 + view_height / transform.y;
-    uint8_t type = entity[i].uid.getType();
+    uint8_t type = uid_get_type(entity[i].uid);
 
-    // donÂ´t try to render if outside of screen
+    // don´t try to render if outside of screen
     // doing this pre-shortcut due int16 -> int8 conversion makes out-of-screen
     // values fit into the screen space
     if (sprite_screen_x < - HALF_WIDTH || sprite_screen_x > SCREEN_WIDTH + HALF_WIDTH) {

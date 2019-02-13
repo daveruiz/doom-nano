@@ -17,7 +17,6 @@ class Entity  {
     Entity();
     Entity(uint8_t type, uint8_t x,  uint8_t y, uint8_t initialState, uint8_t initialHealth);
     Entity(StaticEntity staticEntity);
-    bool is(UID uid);
 };
 
 Entity instantiate_from_static(StaticEntity staticEntity);
