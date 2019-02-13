@@ -2,6 +2,7 @@
 #define _constants_h
 
 // Key pinout
+// #define USE_INPUT_PULLUPS
 #define K_LEFT              6
 #define K_RIGHT             7
 #define K_UP                8
