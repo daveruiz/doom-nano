@@ -3,9 +3,9 @@ A 3d raycast engine for Arduino
 
 ![](/images/screen-1.jpg?raw=true)
 
-See it in action --->
-https://youtu.be/FX7PQtUAkHk (Progress at Jan, 20 2019)
-https://youtu.be/wJG04DSo7Xw (Progress at Feb, 09 2019)
+See it in action ---> https://youtu.be/wJG04DSo7Xw (Progress on Feb, 09 2019)
+https://youtu.be/FX7PQtUAkHk (Progress on Jan, 18 2019)
+
 
 Just experimenting with an Arduino Nano I bought some time ago. This chip is very limited in process and memory: 16Mhz, only 32kb for program memory and 2kb of RAM, of which 1kb is entirely used for the screen.
 Most of problems I´m facing currently are about memory. CPU clock might be a problem too, but can be more or less avoided having more memory for calculation shortcuts.
@@ -26,9 +26,9 @@ Resources:
 
 Current status:
 - The map rendering is working nicely. Even I was able to add a depth effect by using different dithering patterns, depending on the distance to the view.
-- Sprites are working too, though has some issues hiding them behind walls because memory limitations (the z-buffer precision has been limited a lot to make it smalle).
+- Sprites are working too, though has some issues hiding them behind walls because memory limitations (the z-buffer precision has been limited a lot to make it smaller).
 - You can move through the map, collide with walls, collect items and interact with enemies. I could also add the jogging effect, like Doom´s one.
-- The enemies IA, despite is very simple, I think works very well and it´s enough for the purpose of the game. Looks very similar to Imp enemy from original Doom.
+- The enemies AI, despite is very simple, I think works very well and it´s enough for the purpose of the game. Looks very similar to  Imp enemy from original Doom.
 - For the HUD, I realized that the native `print` from Adafruit's library uses too much memory. So I've implemented my custom text rendering methods and a custom font which includes only needed characters and some icons. 
 - Currently I´m using 99% of program memory, which doesn´t let me adds more code. I need to research how to optimize it to make it smaller.
 
