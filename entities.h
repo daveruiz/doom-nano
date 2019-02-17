@@ -15,7 +15,7 @@
 #define create_enemy(x, y)            create_entity(E_ENEMY, x, y, S_STAND, 100)
 #define create_medikit(x, y)          create_entity(E_MEDIKIT, x, y, S_STAND, 0)
 #define create_key(x, y)              create_entity(E_KEY, x, y, S_STAND, 0)
-#define create_fireball(x, y, dir)    create_entity(E_KEY, x, y, S_STAND, dir)
+#define create_fireball(x, y, dir)    create_entity(E_FIREBALL, x, y, S_STAND, dir)
 
 // entity statuses
 #define S_STAND               0

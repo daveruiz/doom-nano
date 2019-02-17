@@ -1,5 +1,6 @@
-#ifndef _display_h
-#define _display_h
+/* 
+todo: Moving this to CPP looks like it takes more Flash storage. Figure out why.
+*/
 
 #include <Wire.h>
 #include <Adafruit_SSD1306.h>
@@ -26,11 +27,11 @@ void fadeScreen(uint8_t intensity, bool color);
 void drawByte(uint8_t x, uint8_t y, uint8_t b);
 uint8_t getByte(uint8_t x, uint8_t y);
 void drawPixel(int8_t x, int8_t y, bool color, bool raycasterViewport);
-void drawVLine(int8_t x, int8_t start_y, int8_t end_y, uint8_t intensity);
+void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity);
 void drawSprite(int8_t x, int8_t y, const uint8_t bitmap[], const uint8_t mask[], int16_t w, int16_t h, uint8_t sprite, double distance);
 void drawChar(int8_t x, int8_t y, char ch);
 void drawText(int8_t x, int8_t y, char *txt, uint8_t space = 1);
-void drawText(int8_t x, int8_t y, __FlashStringHelper txt, uint8_t space = 1);
+void drawText(int8_t x, int8_t y, const __FlashStringHelper txt, uint8_t space = 1);
 
 // Initalize screen. Following line is for OLED 128x64 connected by I2C
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
@@ -89,8 +90,8 @@ boolean getGradientPixel(uint8_t x, uint8_t y, uint8_t i) {
   if (i >= GRADIENT_COUNT - 1) return 1;
 
   uint8_t index = max(0, min(GRADIENT_COUNT - 1, i)) * GRADIENT_WIDTH * GRADIENT_HEIGHT // gradient index
-                  + y * GRADIENT_WIDTH % (GRADIENT_WIDTH * GRADIENT_HEIGHT)                           // y byte offset
-                  + x / GRADIENT_HEIGHT % GRADIENT_WIDTH;                                             // x byte offset
+                  + y * GRADIENT_WIDTH % (GRADIENT_WIDTH * GRADIENT_HEIGHT)             // y byte offset
+                  + x / GRADIENT_HEIGHT % GRADIENT_WIDTH;                               // x byte offset
 
   // return the bit based on x
   return read_bit(pgm_read_byte(gradient + index), x % 8);
@@ -283,6 +284,3 @@ void drawText(int8_t x, int8_t y, int num) {
   itoa(num, buf, 10);
   drawText(x, y, buf);
 }
-
-#endif
-

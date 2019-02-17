@@ -1,6 +1,7 @@
 #ifndef _level_h
 #define _level_h
 
+#include <avr/pgmspace.h>
 #include "constants.h";
 
 /*

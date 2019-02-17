@@ -1,6 +1,7 @@
 #ifndef _sprites_h
 #define _sprites_h
 
+#include <avr/pgmspace.h>
 #include <stdint.h>
 
 #define bmp_font_width   24  // in bytes

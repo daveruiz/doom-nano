@@ -60,11 +60,4 @@
 #define ENEMY_FIREBALL_DAMAGE 20
 #define GUN_MAX_DAMAGE        15
 
-// useful macros
-#define swap(a, b)            do { typeof(a) temp = a; a = b; b = temp; } while (0)
-#define sign(a, b)            (double) (a > b ? 1 : (b > a ? -1 : 0))
-// #define dist(pos_a, pos_b)    sqrt(sq(pos_a.x - pos_b.x) + sq(pos_a.y - pos_b.y)) * DISTANCE_MULTIPLIER
-// #define dist_p(pos_p_a, pos_b)  sqrt(sq(pos_p_a->x - pos_b.x) + sq(pos_p_a->y - pos_b.y)) * DISTANCE_MULTIPLIER
-// #define isCollider(block)     (block == E_WALL)
-
 #endif

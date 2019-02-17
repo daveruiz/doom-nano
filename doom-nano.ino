@@ -1,11 +1,15 @@
 #include "constants.h"
 #include "level.h"
 #include "sprites.h"
-#include "display.h"
 #include "input.h"
 #include "entities.h"
 #include "types.h"
+#include "display.h"
 // #include <MemoryFree.h>
+
+// Useful macros
+#define swap(a, b)            do { typeof(a) temp = a; a = b; b = temp; } while (0)
+#define sign(a, b)            (double) (a > b ? 1 : (b > a ? -1 : 0))
 
 // general
 uint8_t scene = INTRO;
@@ -83,27 +87,21 @@ void spawnEntity(uint8_t type, uint8_t x, uint8_t y) {
   }
 
   // todo: read static entity status
-
+  
   switch (type) {
     case E_ENEMY:
-      if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = create_enemy(x, y);
-        num_entities++;
-      }
+      entity[num_entities] = create_enemy(x, y);
+      num_entities++;
       break;
 
     case E_KEY:
-      if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = create_medikit(x, y);
-        num_entities++;
-      }
+      entity[num_entities] = create_key(x, y);
+      num_entities++;
       break;
 
     case E_MEDIKIT:
-      if (num_entities < MAX_ENTITIES) {
-        entity[num_entities] = create_key(x, y);
-        num_entities++;
-      }
+      entity[num_entities] = create_medikit(x, y);
+      num_entities++;
       break;
   }
 }
@@ -379,6 +377,8 @@ void updateEntities(const uint8_t level[]) {
 
 // The map raycaster. Based on https://lodev.org/cgtutor/raycasting.html
 void renderMap(const uint8_t level[], double view_height) {
+  UID last_uid;
+
   for (uint8_t x = 0; x < SCREEN_WIDTH; x += RES_DIVIDER) {
     double camera_x = 2 * (double) x / SCREEN_WIDTH - 1;
     double ray_x = player.dir.x + player.plane.x * camera_x;
@@ -437,8 +437,9 @@ void renderMap(const uint8_t level[], double view_height) {
           // Check that it's close to the player
           if (coords_distance(&(player.pos), &map_coords) < MAX_ENTITY_DISTANCE) {
             UID uid = create_uid(block, map_x, map_y);
-            if (!isSpawned(uid)) {
+            if (last_uid != uid && !isSpawned(uid)) {
               spawnEntity(block, map_x, map_y);
+              last_uid = uid;
             }
           }
         }
