@@ -18,7 +18,7 @@ Hardware I used:
 - Arduino nano V3 (ATmega328P)
 - OLED Display (i2c 128x64)
 - 4 buttons
-- 4 10k ohms resistors
+- 4 10k ohms resistors (Optional. You can use internal pull-up resistor by uncommenting the `#define USE_INPUT_PULLUPS` from contants.h file)
 
 Resources:
 - Sprites from https://www.spriters-resource.com
