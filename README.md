@@ -3,22 +3,22 @@ A 3d raycast engine for Arduino
 
 ![](/images/screen-1.jpg?raw=true)
 
-See it in action ---> https://youtu.be/wJG04DSo7Xw (Progress on Feb, 09 2019)
-https://youtu.be/FX7PQtUAkHk (Progress on Jan, 18 2019)
-
+See it in action:
+- https://youtu.be/wJG04DSo7Xw (Progress on Feb, 09 2019)
+- https://youtu.be/FX7PQtUAkHk (Progress on Jan, 18 2019)
 
 Just experimenting with an Arduino Nano I bought some time ago. This chip is very limited in process and memory: 16Mhz, only 32kb for program memory and 2kb of RAM, of which 1kb is entirely used for the screen.
 Most of problems I´m facing currently are about memory. CPU clock might be a problem too, but can be more or less avoided having more memory for calculation shortcuts.
 Despite of all those limitations, I managed to make it run at 8-11 FPS with most of stuff already done. Probably can be optimized and structured much better. Will try to keep learning and improve it.
 
-To be clear. **This is not an actual Doom game**, just picked some sprites from it (and simplified a lot), But the rendering engine is more like a Wolfeistein 3D. The Doom idea came because I started building the fancy melt-screen effect, included here.
+To be clear. **This is not an actual Doom game**, just picked some sprites from it (and simplified a lot). The rendering engine is more like a Wolfeistein 3D. The Doom idea came because I started this building the fancy melt-screen effect (included in early version, but not anymore).
 
 Hardware I used:
 - Protoboard
 - Arduino nano V3 (ATmega328P)
 - OLED Display (i2c 128x64)
 - 4 buttons
-- 4 10k ohms resistors (Optional. You can use internal pull-up resistor by uncommenting the `#define USE_INPUT_PULLUPS` from contants.h file)
+- 4 10k ohms resistors (Optional. You can use internal pull-up resistor by uncommenting the `#define USE_INPUT_PULLUPS` from constants.h file)
 
 Resources:
 - Sprites from https://www.spriters-resource.com
@@ -32,13 +32,13 @@ Current status:
 - For the HUD, I realized that the native `print` from Adafruit's library uses too much memory. So I've implemented my custom text rendering methods and a custom font which includes only needed characters and some icons. 
 - Currently I´m using 99% of program memory, which doesn´t let me adds more code. I need to research how to optimize it to make it smaller.
 
-To do:
+(I'd like) To do:
 - ~~Make possible kill enemies.~~
 - Doors and locked doors.
 - A game over screen.
 - Add more sprites, decorative elements, etc.
 - Textures? Very performance expensive. I don't think so.
-- Make code looks nicer! Move all to pure c++
+- Make code looks nicer! Move all to pure c++.
 - Sound/Music? Hmmm I wish so, but...
 
 More screens (outdated):
