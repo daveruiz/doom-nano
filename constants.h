@@ -13,10 +13,10 @@
 #define OPTIMIZE_SSD1306                // Optimizations for SSD1366 displays
 
 #define FRAME_TIME          66.666666   // Desired time per frame in ms (66.666666 is ~15 fps)
-#define RES_DIVIDER         2           // Hgher values will result in lower horizontal resolution when rasterize and lower process and memory usage
+#define RES_DIVIDER         2           // Higher values will result in lower horizontal resolution when rasterize and lower process and memory usage
                                         // Lower will require more process and memory, but looks nicer
 #define Z_RES_DIVIDER       2           // Zbuffer resolution divider. We sacrifice resolution to save memory
-#define DISTANCE_MULTIPLIER 20          // Distances are stored as uint8_t, mutiplying the distance we can obtain more precision taking care
+#define DISTANCE_MULTIPLIER 20          // Distances are stored as uint8_t, multiplying the distance we can obtain more precision taking care
                                         // of keep numbers inside the type range. Max is 256 / MAX_RENDER_DEPTH
 #define MAX_RENDER_DEPTH    12
 #define MAX_SPRITE_DEPTH    8

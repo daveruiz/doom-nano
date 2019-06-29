@@ -113,7 +113,7 @@ void spawnFireball(double x, double y) {
   }
 
   UID uid = create_uid(E_FIREBALL, x, y);
-  // Remove if already exists, donÂ´t throw anything. Not the best, but shouldnÂ´t happen too often
+  // Remove if already exists, don't throw anything. Not the best, but shouldn't happen too often
   if (isSpawned(uid)) return;
 
   // Calculate direction. 32 angles
@@ -193,7 +193,7 @@ UID detectCollision(const uint8_t level[], Coords *pos, double relative_x, doubl
     Coords new_coords = { entity[i].pos.x - relative_x, entity[i].pos.y - relative_y };
     uint8_t distance = coords_distance(pos, &new_coords);
 
-    // Check distance and if it´s getting closer
+    // Check distance and if it's getting closer
     if (distance < ENEMY_COLLIDER_DIST && distance < entity[i].distance) {
       return entity[i].uid;
     }
@@ -623,7 +623,7 @@ void renderGun(uint8_t gun_pos, double amount_jogging) {
     display.drawBitmap(x + 6, y - 11, bmp_fire_bits, BMP_FIRE_WIDTH, BMP_FIRE_HEIGHT, 1);
   }
 
-  // DonÂ´t draw over the hud!
+  // Don't draw over the hud!
   uint8_t clip_height = max(0, min(y + BMP_GUN_HEIGHT, RENDER_HEIGHT) - y);
 
   // Draw the gun (black mask + actual sprite).
