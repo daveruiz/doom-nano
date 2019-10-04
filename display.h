@@ -33,7 +33,7 @@ void drawChar(int8_t x, int8_t y, char ch);
 void drawText(int8_t x, int8_t y, char *txt, uint8_t space = 1);
 void drawText(int8_t x, int8_t y, const __FlashStringHelper txt, uint8_t space = 1);
 
-// Initalize screen. Following line is for OLED 128x64 connected by I2C
+// Initialize screen. Following line is for OLED 128x64 connected by I2C
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // FPS control
@@ -193,7 +193,7 @@ void drawSprite(
   bool maskPixel;
 
   // Don't draw if the sprite is hidden by z buffer
-  // Not checked per pixer for performance reasons
+  // Not checked per pixel for performance reasons
   if (zbuffer[min(max(x, 0), ZBUFFER_SIZE - 1) / Z_RES_DIVIDER] < distance * DISTANCE_MULTIPLIER) {
     return;
   }
