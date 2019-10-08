@@ -5,7 +5,6 @@
 #include "entities.h"
 #include "types.h"
 #include "display.h"
-// #include <MemoryFree.h>
 
 // Useful macros
 #define swap(a, b)            do { typeof(a) temp = a; a = b; b = temp; } while (0)
@@ -26,7 +25,6 @@ uint8_t num_entities = 0;
 uint8_t num_static_entities = 0;
 
 void setup(void) {
-  Serial.begin(9600);
   setupDisplay();
   input_setup();
 }
@@ -824,4 +822,3 @@ void loop(void) {
   }
   exit_scene = false;
 }
-
