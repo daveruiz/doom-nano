@@ -251,7 +251,7 @@ void drawChar(int8_t x, int8_t y, char ch) {
 }
 
 // Draw a string
-void drawText(int8_t x, int8_t y, char *txt, uint8_t space = 1) {
+void drawText(int8_t x, int8_t y, char *txt, uint8_t space) {
   uint8_t pos = x;
   uint8_t i = 0;
   char ch;

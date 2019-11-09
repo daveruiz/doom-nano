@@ -383,7 +383,7 @@ void renderMap(const uint8_t level[], double view_height) {
     double ray_y = player.dir.y + player.plane.y * camera_x;
     uint8_t map_x = uint8_t(player.pos.x);
     uint8_t map_y = uint8_t(player.pos.y);
-    Coords map_coords = { map_x, map_y };
+    Coords map_coords = { player.pos.x, player.pos.y };
     double delta_x = abs(1 / ray_x);
     double delta_y = abs(1 / ray_y);
 
