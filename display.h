@@ -62,7 +62,7 @@ void setupDisplay() {
 #endif
 
   // initialize z buffer
-  for (uint8_t i = 0; i < SCREEN_WIDTH / Z_RES_DIVIDER; i++) zbuffer[i] = 255;
+  memset(zbuffer, 0xFF, ZBUFFER_SIZE);
 }
 
 // Adds a delay to limit play to specified fps
