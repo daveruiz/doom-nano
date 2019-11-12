@@ -103,8 +103,7 @@
 class Adafruit_SSD1306 : public Adafruit_GFX {
  public:
   // NEW CONSTRUCTORS -- recommended for new projects
-  Adafruit_SSD1306(uint8_t w, uint8_t h, TwoWire *twi=&Wire, int8_t rst_pin=-1,
-    uint32_t clkDuring=400000UL, uint32_t clkAfter=100000UL);
+  Adafruit_SSD1306(uint8_t w, uint8_t h, TwoWire *twi=&Wire);
 
   ~Adafruit_SSD1306(void);
 
@@ -118,17 +117,11 @@ class Adafruit_SSD1306 : public Adafruit_GFX {
   void         drawPixel(int16_t x, int16_t y, uint16_t color);
   virtual void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
   virtual void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
-  void         startscrollright(uint8_t start, uint8_t stop);
-  void         startscrollleft(uint8_t start, uint8_t stop);
-  void         startscrolldiagright(uint8_t start, uint8_t stop);
-  void         startscrolldiagleft(uint8_t start, uint8_t stop);
-  void         stopscroll(void);
   void         ssd1306_command(uint8_t c);
   boolean      getPixel(int16_t x, int16_t y);
   uint8_t     *getBuffer(void);
 
  private:
-  inline void  SPIwrite(uint8_t d) __attribute__((always_inline));
   void         drawFastHLineInternal(int16_t x, int16_t y, int16_t w,
                  uint16_t color);
   void         drawFastVLineInternal(int16_t x, int16_t y, int16_t h,
@@ -139,11 +132,6 @@ class Adafruit_SSD1306 : public Adafruit_GFX {
   TwoWire     *wire;
   uint8_t     *buffer;
   int8_t       i2caddr, vccstate, page_end;
-
-#if ARDUINO >= 157
-  uint32_t     wireClk;    // Wire speed for SSD1306 transfers
-  uint32_t     restoreClk; // Wire speed following SSD1306 transfers
-#endif
 };
 
 #endif // _Adafruit_SSD1306_H_

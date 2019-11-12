@@ -65,27 +65,7 @@
 #define ssd1306_swap(a, b) \
   (((a) ^= (b)), ((b) ^= (a)), ((a) ^= (b))) ///< No-temp-var swap operation
 
-#if ARDUINO >= 100
  #define WIRE_WRITE wire->write ///< Wire write function in recent Arduino lib
-#else
- #define WIRE_WRITE wire->send  ///< Wire write function in older Arduino lib
-#endif
-
-#if (ARDUINO >= 157) && !defined(ARDUINO_STM32_FEATHER)
- #define SETWIRECLOCK wire->setClock(wireClk)    ///< Set before I2C transfer
- #define RESWIRECLOCK wire->setClock(restoreClk) ///< Restore after I2C xfer
-#else // setClock() is not present in older Arduino Wire lib (or WICED)
- #define SETWIRECLOCK ///< Dummy stand-in define
- #define RESWIRECLOCK ///< keeps compiler happy
-#endif
-
-#if defined(SPI_HAS_TRANSACTION)
- #define SPI_TRANSACTION_START spi->beginTransaction(spiSettings) ///< Pre-SPI
- #define SPI_TRANSACTION_END   spi->endTransaction()              ///< Post-SPI
-#else // SPI transactions likewise not present in older Arduino SPI lib
- #define SPI_TRANSACTION_START ///< Dummy stand-in define
- #define SPI_TRANSACTION_END   ///< keeps compiler happy
-#endif
 
 // The definition of 'transaction' is broadened a bit in the context of
 // this library -- referring not just to SPI transactions (if supported
@@ -97,9 +77,9 @@
 // in the TRANSACTION_* macros.
 
 // Check first if Wire, then hardware SPI, then soft SPI:
-#define TRANSACTION_START   SETWIRECLOCK;
+#define TRANSACTION_START   wire->setClock(400000UL);
 
-#define TRANSACTION_END      RESWIRECLOCK;
+#define TRANSACTION_END      
 
 
 // CONSTRUCTORS, DESTRUCTOR ------------------------------------------------
@@ -137,10 +117,8 @@
     @note   Call the object's begin() function before use -- buffer
             allocation is performed there!
 */
-Adafruit_SSD1306::Adafruit_SSD1306(uint8_t w, uint8_t h, TwoWire *twi,
-  int8_t rst_pin, uint32_t clkDuring, uint32_t clkAfter) :
-  Adafruit_GFX(w, h), wire(twi ? twi : &Wire), buffer(NULL),
-  wireClk(clkDuring), restoreClk(clkAfter) {
+Adafruit_SSD1306::Adafruit_SSD1306(uint8_t w, uint8_t h, TwoWire *twi) :
+  Adafruit_GFX(w, h), wire(twi ? twi : &Wire), buffer(NULL) {
 }
 
 /*!
@@ -648,15 +626,6 @@ void Adafruit_SSD1306::display(void) {
   ssd1306_commandList(dlist1, sizeof(dlist1));
   ssd1306_command1(WIDTH - 1); // Column end address
 
-#if defined(ESP8266)
-  // ESP8266 needs a periodic yield() call to avoid watchdog reset.
-  // With the limited size of SSD1306 displays, and the fast bitrate
-  // being used (1 MHz or more), I think one yield() immediately before
-  // a screen write and one immediately after should cover it.  But if
-  // not, if this becomes a problem, yields() might be added in the
-  // 32-byte transfer condition below.
-  yield();
-#endif
   uint16_t count = WIDTH * ((HEIGHT + 7) / 8);
   uint8_t *ptr   = buffer;
     wire->beginTransmission(i2caddr);
@@ -673,133 +642,6 @@ void Adafruit_SSD1306::display(void) {
       bytesOut++;
     }
     wire->endTransmission();
-  TRANSACTION_END
-#if defined(ESP8266)
-  yield();
-#endif
-}
-
-// SCROLLING FUNCTIONS -----------------------------------------------------
-
-/*!
-    @brief  Activate a right-handed scroll for all or part of the display.
-    @param  start
-            First row.
-    @param  stop
-            Last row.
-    @return None (void).
-*/
-// To scroll the whole display, run: display.startscrollright(0x00, 0x0F)
-void Adafruit_SSD1306::startscrollright(uint8_t start, uint8_t stop) {
-  TRANSACTION_START
-  static const uint8_t PROGMEM scrollList1a[] = {
-    SSD1306_RIGHT_HORIZONTAL_SCROLL,
-    0X00 };
-  ssd1306_commandList(scrollList1a, sizeof(scrollList1a));
-  ssd1306_command1(start);
-  ssd1306_command1(0X00);
-  ssd1306_command1(stop);
-  static const uint8_t PROGMEM scrollList1b[] = {
-    0X00,
-    0XFF,
-    SSD1306_ACTIVATE_SCROLL };
-  ssd1306_commandList(scrollList1b, sizeof(scrollList1b));
-  TRANSACTION_END
-}
-
-/*!
-    @brief  Activate a left-handed scroll for all or part of the display.
-    @param  start
-            First row.
-    @param  stop
-            Last row.
-    @return None (void).
-*/
-// To scroll the whole display, run: display.startscrollleft(0x00, 0x0F)
-void Adafruit_SSD1306::startscrollleft(uint8_t start, uint8_t stop) {
-  TRANSACTION_START
-  static const uint8_t PROGMEM scrollList2a[] = {
-    SSD1306_LEFT_HORIZONTAL_SCROLL,
-    0X00 };
-  ssd1306_commandList(scrollList2a, sizeof(scrollList2a));
-  ssd1306_command1(start);
-  ssd1306_command1(0X00);
-  ssd1306_command1(stop);
-  static const uint8_t PROGMEM scrollList2b[] = {
-    0X00,
-    0XFF,
-    SSD1306_ACTIVATE_SCROLL };
-  ssd1306_commandList(scrollList2b, sizeof(scrollList2b));
-  TRANSACTION_END
-}
-
-/*!
-    @brief  Activate a diagonal scroll for all or part of the display.
-    @param  start
-            First row.
-    @param  stop
-            Last row.
-    @return None (void).
-*/
-// display.startscrolldiagright(0x00, 0x0F)
-void Adafruit_SSD1306::startscrolldiagright(uint8_t start, uint8_t stop) {
-  TRANSACTION_START
-  static const uint8_t PROGMEM scrollList3a[] = {
-    SSD1306_SET_VERTICAL_SCROLL_AREA,
-    0X00 };
-  ssd1306_commandList(scrollList3a, sizeof(scrollList3a));
-  ssd1306_command1(HEIGHT);
-  static const uint8_t PROGMEM scrollList3b[] = {
-    SSD1306_VERTICAL_AND_RIGHT_HORIZONTAL_SCROLL,
-    0X00 };
-  ssd1306_commandList(scrollList3b, sizeof(scrollList3b));
-  ssd1306_command1(start);
-  ssd1306_command1(0X00);
-  ssd1306_command1(stop);
-  static const uint8_t PROGMEM scrollList3c[] = {
-    0X01,
-    SSD1306_ACTIVATE_SCROLL };
-  ssd1306_commandList(scrollList3c, sizeof(scrollList3c));
-  TRANSACTION_END
-}
-
-/*!
-    @brief  Activate alternate diagonal scroll for all or part of the display.
-    @param  start
-            First row.
-    @param  stop
-            Last row.
-    @return None (void).
-*/
-// To scroll the whole display, run: display.startscrolldiagleft(0x00, 0x0F)
-void Adafruit_SSD1306::startscrolldiagleft(uint8_t start, uint8_t stop) {
-  TRANSACTION_START
-  static const uint8_t PROGMEM scrollList4a[] = {
-    SSD1306_SET_VERTICAL_SCROLL_AREA,
-    0X00 };
-  ssd1306_commandList(scrollList4a, sizeof(scrollList4a));
-  ssd1306_command1(HEIGHT);
-  static const uint8_t PROGMEM scrollList4b[] = {
-    SSD1306_VERTICAL_AND_LEFT_HORIZONTAL_SCROLL,
-    0X00 };
-  ssd1306_commandList(scrollList4b, sizeof(scrollList4b));
-  ssd1306_command1(start);
-  ssd1306_command1(0X00);
-  ssd1306_command1(stop);
-  static const uint8_t PROGMEM scrollList4c[] = {
-    0X01,
-    SSD1306_ACTIVATE_SCROLL };
-  ssd1306_commandList(scrollList4c, sizeof(scrollList4c));
-  TRANSACTION_END
-}
-
-/*!
-    @brief  Cease a previously-begun scrolling action.
-    @return None (void).
-*/
-void Adafruit_SSD1306::stopscroll(void) {
-  TRANSACTION_START
-  ssd1306_command1(SSD1306_DEACTIVATE_SCROLL);
   TRANSACTION_END
 }
 
