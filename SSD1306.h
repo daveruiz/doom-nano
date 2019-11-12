@@ -27,12 +27,6 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 
-#if defined(__AVR__)
-  typedef volatile uint8_t  PortReg;
-  typedef uint8_t           PortMask;
-  #define HAVE_PORTREG
-#endif
-
 /// The following "raw" color names are kept for backwards client compatability
 /// They can be disabled by predefining this macro before including the Adafruit header
 /// client code will then need to be modified to use the scoped enum values directly
@@ -108,16 +102,13 @@ class Adafruit_SSD1306 : public Adafruit_GFX {
   ~Adafruit_SSD1306(void);
 
   boolean      begin(uint8_t switchvcc=SSD1306_SWITCHCAPVCC,
-                 uint8_t i2caddr=0, boolean reset=true,
-                 boolean periphBegin=true);
+                 uint8_t i2caddr=0);
   void         display(void);
   void         clearDisplay(void);
   void         invertDisplay(boolean i);
-  void         dim(boolean dim);
   void         drawPixel(int16_t x, int16_t y, uint16_t color);
   virtual void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
   virtual void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
-  void         ssd1306_command(uint8_t c);
   boolean      getPixel(int16_t x, int16_t y);
   uint8_t     *getBuffer(void);
 

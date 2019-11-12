@@ -50,7 +50,6 @@
 
 #include <Adafruit_GFX.h>
 #include "SSD1306.h"
-#include "splash.h"
 
 // SOME DEFINES AND STATIC VARIABLES USED INTERNALLY -----------------------
 
@@ -66,21 +65,6 @@
   (((a) ^= (b)), ((b) ^= (a)), ((a) ^= (b))) ///< No-temp-var swap operation
 
  #define WIRE_WRITE wire->write ///< Wire write function in recent Arduino lib
-
-// The definition of 'transaction' is broadened a bit in the context of
-// this library -- referring not just to SPI transactions (if supported
-// in the version of the SPI library being used), but also chip select
-// (if SPI is being used, whether hardware or soft), and also to the
-// beginning and end of I2C transfers (the Wire clock may be sped up before
-// issuing data to the display, then restored to the default rate afterward
-// so other I2C device types still work).  All of these are encapsulated
-// in the TRANSACTION_* macros.
-
-// Check first if Wire, then hardware SPI, then soft SPI:
-#define TRANSACTION_START   wire->setClock(400000UL);
-
-#define TRANSACTION_END      
-
 
 // CONSTRUCTORS, DESTRUCTOR ------------------------------------------------
 
@@ -164,22 +148,6 @@ void Adafruit_SSD1306::ssd1306_commandList(const uint8_t *c, uint8_t n) {
 
 }
 
-// A public version of ssd1306_command1(), for existing user code that
-// might rely on that function. This encapsulates the command transfer
-// in a transaction start/end, similar to old library's handling of it.
-/*!
-    @brief  Issue a single low-level command directly to the SSD1306
-            display, bypassing the library.
-    @param  c
-            Command to issue (0x00 to 0xFF, see datasheet).
-    @return None (void).
-*/
-void Adafruit_SSD1306::ssd1306_command(uint8_t c) {
-  TRANSACTION_START
-  ssd1306_command1(c);
-  TRANSACTION_END
-}
-
 // ALLOCATE & INIT DISPLAY -------------------------------------------------
 
 /*!
@@ -217,20 +185,12 @@ void Adafruit_SSD1306::ssd1306_command(uint8_t c) {
             proceeding.
     @note   MUST call this function before any drawing or updates!
 */
-boolean Adafruit_SSD1306::begin(uint8_t vcs, uint8_t addr, boolean reset,
-  boolean periphBegin) {
+boolean Adafruit_SSD1306::begin(uint8_t vcs, uint8_t addr) {
 
   if((!buffer) && !(buffer = (uint8_t *)malloc(WIDTH * ((HEIGHT + 7) / 8))))
     return false;
 
   clearDisplay();
-  if(HEIGHT > 32) {
-    drawBitmap((WIDTH - splash1_width) / 2, (HEIGHT - splash1_height) / 2,
-      splash1_data, splash1_width, splash1_height, 1);
-  } else {
-    drawBitmap((WIDTH - splash2_width) / 2, (HEIGHT - splash2_height) / 2,
-      splash2_data, splash2_width, splash2_height, 1);
-  }
 
   vccstate = vcs;
 
@@ -242,10 +202,8 @@ boolean Adafruit_SSD1306::begin(uint8_t vcs, uint8_t addr, boolean reset,
     // function if it has unusual circumstances (e.g. TWI variants that
     // can accept different SDA/SCL pins, or if two SSD1306 instances
     // with different addresses -- only a single begin() is needed).
-    if(periphBegin) wire->begin();
-
-
-  TRANSACTION_START
+    wire->begin();
+    wire->setClock(400000UL);
 
   // Init sequence
   static const uint8_t PROGMEM init1[] = {
@@ -307,8 +265,6 @@ boolean Adafruit_SSD1306::begin(uint8_t vcs, uint8_t addr, boolean reset,
     SSD1306_DEACTIVATE_SCROLL,
     SSD1306_DISPLAYON };                 // Main screen turn on
   ssd1306_commandList(init5, sizeof(init5));
-
-  TRANSACTION_END
 
   return true; // Success
 }
@@ -616,7 +572,6 @@ uint8_t *Adafruit_SSD1306::getBuffer(void) {
             of graphics commands, as best needed by one's own application.
 */
 void Adafruit_SSD1306::display(void) {
-  TRANSACTION_START
   static const uint8_t PROGMEM dlist1[] = {
     SSD1306_PAGEADDR,
     0,                         // Page start address
@@ -642,7 +597,6 @@ void Adafruit_SSD1306::display(void) {
       bytesOut++;
     }
     wire->endTransmission();
-  TRANSACTION_END
 }
 
 // OTHER HARDWARE SETTINGS -------------------------------------------------
@@ -661,31 +615,5 @@ void Adafruit_SSD1306::display(void) {
             SSD1306_WHITE (value 1) will draw black.
 */
 void Adafruit_SSD1306::invertDisplay(boolean i) {
-  TRANSACTION_START
   ssd1306_command1(i ? SSD1306_INVERTDISPLAY : SSD1306_NORMALDISPLAY);
-  TRANSACTION_END
-}
-
-/*!
-    @brief  Dim the display.
-    @param  dim
-            true to enable lower brightness mode, false for full brightness.
-    @return None (void).
-    @note   This has an immediate effect on the display, no need to call the
-            display() function -- buffer contents are not changed.
-*/
-void Adafruit_SSD1306::dim(boolean dim) {
-  uint8_t contrast;
-
-  if(dim) {
-    contrast = 0; // Dimmed display
-  } else {
-    contrast = (vccstate == SSD1306_EXTERNALVCC) ? 0x9F : 0xCF;
-  }
-  // the range of contrast to too small to be really useful
-  // it is useful to dim the display
-  TRANSACTION_START
-  ssd1306_command1(SSD1306_SETCONTRAST);
-  ssd1306_command1(contrast);
-  TRANSACTION_END
 }
