@@ -76,28 +76,15 @@
 #define SSD1306_ACTIVATE_SCROLL                      0x2F ///< Start scroll
 #define SSD1306_SET_VERTICAL_SCROLL_AREA             0xA3 ///< Set scroll range
 
-// Deprecated size stuff for backwards compatibility with old sketches
-#if defined SSD1306_128_64
- #define SSD1306_LCDWIDTH  128 ///< DEPRECATED: width w/SSD1306_128_64 defined
- #define SSD1306_LCDHEIGHT  64 ///< DEPRECATED: height w/SSD1306_128_64 defined
-#endif
-#if defined SSD1306_128_32
- #define SSD1306_LCDWIDTH  128 ///< DEPRECATED: width w/SSD1306_128_32 defined
- #define SSD1306_LCDHEIGHT  32 ///< DEPRECATED: height w/SSD1306_128_32 defined
-#endif
-#if defined SSD1306_96_16
- #define SSD1306_LCDWIDTH   96 ///< DEPRECATED: width w/SSD1306_96_16 defined
- #define SSD1306_LCDHEIGHT  16 ///< DEPRECATED: height w/SSD1306_96_16 defined
-#endif
-
 /*! 
     @brief  Class that stores state and functions for interacting with
             SSD1306 OLED displays.
 */
 class Adafruit_SSD1306 : public Adafruit_GFX {
  public:
-  // NEW CONSTRUCTORS -- recommended for new projects
-  Adafruit_SSD1306(uint8_t w, uint8_t h, TwoWire *twi=&Wire);
+  Adafruit_SSD1306(uint8_t w, uint8_t h) :
+    Adafruit_GFX(w, h), buffer(NULL) {
+  }
 
   ~Adafruit_SSD1306(void);
 
@@ -120,7 +107,6 @@ class Adafruit_SSD1306 : public Adafruit_GFX {
   void         ssd1306_command1(uint8_t c);
   void         ssd1306_commandList(const uint8_t *c, uint8_t n);
 
-  TwoWire     *wire;
   uint8_t     *buffer;
   int8_t       i2caddr, vccstate, page_end;
 };

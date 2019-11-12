@@ -10,7 +10,6 @@ todo: Moving this to CPP looks like it takes more Flash storage. Figure out why.
 #define HALF_WIDTH          64
 #define RENDER_HEIGHT       56          // raycaster working height (the rest is for the hud)
 #define HALF_HEIGHT         32
-#define OLED_RESET          -1          // Reset pin # (or -1 if sharing Arduino reset pin)
 
 // Reads a char from an F() string
 #define F_char(ifsh, ch)    pgm_read_byte(reinterpret_cast<PGM_P>(ifsh) + ch)
@@ -33,11 +32,11 @@ void drawText(int8_t x, int8_t y, char *txt, uint8_t space = 1);
 void drawText(int8_t x, int8_t y, const __FlashStringHelper txt, uint8_t space = 1);
 
 // Initialize screen. Following line is for OLED 128x64 connected by I2C
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT);
 
 // FPS control
 double delta = 1;
-double lastFrameTime = 0;
+uint32_t lastFrameTime = 0;
 
 #ifdef OPTIMIZE_SSD1306
 // Optimizations for SSD1306 handles buffer directly

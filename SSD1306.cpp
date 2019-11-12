@@ -64,46 +64,8 @@
 #define ssd1306_swap(a, b) \
   (((a) ^= (b)), ((b) ^= (a)), ((a) ^= (b))) ///< No-temp-var swap operation
 
- #define WIRE_WRITE wire->write ///< Wire write function in recent Arduino lib
 
 // CONSTRUCTORS, DESTRUCTOR ------------------------------------------------
-
-/*!
-    @brief  Constructor for I2C-interfaced SSD1306 displays.
-    @param  w
-            Display width in pixels
-    @param  h
-            Display height in pixels
-    @param  twi
-            Pointer to an existing TwoWire instance (e.g. &Wire, the
-            microcontroller's primary I2C bus).
-    @param  rst_pin
-            Reset pin (using Arduino pin numbering), or -1 if not used
-            (some displays might be wired to share the microcontroller's
-            reset pin).
-    @param  clkDuring
-            Speed (in Hz) for Wire transmissions in SSD1306 library calls.
-            Defaults to 400000 (400 KHz), a known 'safe' value for most
-            microcontrollers, and meets the SSD1306 datasheet spec.
-            Some systems can operate I2C faster (800 KHz for ESP32, 1 MHz
-            for many other 32-bit MCUs), and some (perhaps not all)
-            SSD1306's can work with this -- so it's optionally be specified
-            here and is not a default behavior. (Ignored if using pre-1.5.7
-            Arduino software, which operates I2C at a fixed 100 KHz.)
-    @param  clkAfter
-            Speed (in Hz) for Wire transmissions following SSD1306 library
-            calls. Defaults to 100000 (100 KHz), the default Arduino Wire
-            speed. This is done rather than leaving it at the 'during' speed
-            because other devices on the I2C bus might not be compatible
-            with the faster rate. (Ignored if using pre-1.5.7 Arduino
-            software, which operates I2C at a fixed 100 KHz.)
-    @return Adafruit_SSD1306 object.
-    @note   Call the object's begin() function before use -- buffer
-            allocation is performed there!
-*/
-Adafruit_SSD1306::Adafruit_SSD1306(uint8_t w, uint8_t h, TwoWire *twi) :
-  Adafruit_GFX(w, h), wire(twi ? twi : &Wire), buffer(NULL) {
-}
 
 /*!
     @brief  Destructor for Adafruit_SSD1306 object.
@@ -122,29 +84,29 @@ Adafruit_SSD1306::~Adafruit_SSD1306(void) {
 // must be started/ended in calling function for efficiency.
 // This is a private function, not exposed (see ssd1306_command() instead).
 void Adafruit_SSD1306::ssd1306_command1(uint8_t c) {
-    wire->beginTransmission(i2caddr);
-    WIRE_WRITE((uint8_t)0x00); // Co = 0, D/C = 0
-    WIRE_WRITE(c);
-    wire->endTransmission();
+    Wire.beginTransmission(i2caddr);
+    Wire.write((uint8_t)0x00); // Co = 0, D/C = 0
+    Wire.write(c);
+    Wire.endTransmission();
 }
 
 // Issue list of commands to SSD1306, same rules as above re: transactions.
 // This is a private function, not exposed.
 void Adafruit_SSD1306::ssd1306_commandList(const uint8_t *c, uint8_t n) {
-    wire->beginTransmission(i2caddr);
-    WIRE_WRITE((uint8_t)0x00); // Co = 0, D/C = 0
+    Wire.beginTransmission(i2caddr);
+    Wire.write((uint8_t)0x00); // Co = 0, D/C = 0
     uint8_t bytesOut = 1;
     while(n--) {
       if(bytesOut >= WIRE_MAX) {
-        wire->endTransmission();
-        wire->beginTransmission(i2caddr);
-        WIRE_WRITE((uint8_t)0x00); // Co = 0, D/C = 0
+        Wire.endTransmission();
+        Wire.beginTransmission(i2caddr);
+        Wire.write((uint8_t)0x00); // Co = 0, D/C = 0
         bytesOut = 1;
       }
-      WIRE_WRITE(pgm_read_byte(c++));
+      Wire.write(pgm_read_byte(c++));
       bytesOut++;
     }
-    wire->endTransmission();
+    Wire.endTransmission();
 
 }
 
@@ -202,8 +164,8 @@ boolean Adafruit_SSD1306::begin(uint8_t vcs, uint8_t addr) {
     // function if it has unusual circumstances (e.g. TWI variants that
     // can accept different SDA/SCL pins, or if two SSD1306 instances
     // with different addresses -- only a single begin() is needed).
-    wire->begin();
-    wire->setClock(400000UL);
+    Wire.begin();
+    Wire.setClock(400000UL);
 
   // Init sequence
   static const uint8_t PROGMEM init1[] = {
@@ -583,20 +545,20 @@ void Adafruit_SSD1306::display(void) {
 
   uint16_t count = WIDTH * ((HEIGHT + 7) / 8);
   uint8_t *ptr   = buffer;
-    wire->beginTransmission(i2caddr);
-    WIRE_WRITE((uint8_t)0x40);
+    Wire.beginTransmission(i2caddr);
+    Wire.write((uint8_t)0x40);
     uint8_t bytesOut = 1;
     while(count--) {
       if(bytesOut >= WIRE_MAX) {
-        wire->endTransmission();
-        wire->beginTransmission(i2caddr);
-        WIRE_WRITE((uint8_t)0x40);
+        Wire.endTransmission();
+        Wire.beginTransmission(i2caddr);
+        Wire.write((uint8_t)0x40);
         bytesOut = 1;
       }
-      WIRE_WRITE(*ptr++);
+      Wire.write(*ptr++);
       bytesOut++;
     }
-    wire->endTransmission();
+    Wire.endTransmission();
 }
 
 // OTHER HARDWARE SETTINGS -------------------------------------------------
