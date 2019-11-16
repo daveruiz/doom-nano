@@ -53,13 +53,8 @@
 
 // SOME DEFINES AND STATIC VARIABLES USED INTERNALLY -----------------------
 
-#if defined(BUFFER_LENGTH)
- #define WIRE_MAX BUFFER_LENGTH          ///< AVR or similar Wire lib
-#elif defined(SERIAL_BUFFER_SIZE)
- #define WIRE_MAX (SERIAL_BUFFER_SIZE-1) ///< Newer Wire uses RingBuffer
-#else
- #define WIRE_MAX 32                     ///< Use common Arduino core default
-#endif
+#define WIRE_MAX 224
+
 
 #define ssd1306_swap(a, b) \
   (((a) ^= (b)), ((b) ^= (a)), ((a) ^= (b))) ///< No-temp-var swap operation
@@ -84,30 +79,25 @@ Adafruit_SSD1306::~Adafruit_SSD1306(void) {
 // must be started/ended in calling function for efficiency.
 // This is a private function, not exposed (see ssd1306_command() instead).
 void Adafruit_SSD1306::ssd1306_command1(uint8_t c) {
-    Wire.beginTransmission(i2caddr);
-    Wire.write((uint8_t)0x00); // Co = 0, D/C = 0
-    Wire.write(c);
-    Wire.endTransmission();
+  uint8_t cmd = 0x00; // Co = 0, D/C = 0
+  TWI_Start_Transceiver_With_Data(cmd, &c, 1);
 }
 
 // Issue list of commands to SSD1306, same rules as above re: transactions.
 // This is a private function, not exposed.
 void Adafruit_SSD1306::ssd1306_commandList(const uint8_t *c, uint8_t n) {
-    Wire.beginTransmission(i2caddr);
-    Wire.write((uint8_t)0x00); // Co = 0, D/C = 0
-    uint8_t bytesOut = 1;
-    while(n--) {
-      if(bytesOut >= WIRE_MAX) {
-        Wire.endTransmission();
-        Wire.beginTransmission(i2caddr);
-        Wire.write((uint8_t)0x00); // Co = 0, D/C = 0
-        bytesOut = 1;
-      }
-      Wire.write(pgm_read_byte(c++));
-      bytesOut++;
-    }
-    Wire.endTransmission();
+  uint8_t cmd = 0x00; // Co = 0, D/C = 0
+  uint8_t tmp[n];
 
+  uint8_t * tmpptr = static_cast<uint8_t *>(memcpy_P(tmp, c, n));
+  while(n >= WIRE_MAX) {
+    TWI_Start_Transceiver_With_Data(cmd, tmpptr, WIRE_MAX);
+    n -= (WIRE_MAX);
+    tmpptr += (WIRE_MAX);
+  }
+  if(n > 0) {
+    TWI_Start_Transceiver_With_Data(cmd, tmpptr, n);
+  }
 }
 
 // ALLOCATE & INIT DISPLAY -------------------------------------------------
@@ -164,8 +154,7 @@ boolean Adafruit_SSD1306::begin(uint8_t vcs, uint8_t addr) {
     // function if it has unusual circumstances (e.g. TWI variants that
     // can accept different SDA/SCL pins, or if two SSD1306 instances
     // with different addresses -- only a single begin() is needed).
-    Wire.begin();
-    Wire.setClock(400000UL);
+  TWI_Master_Initialise();
 
   // Init sequence
   static const uint8_t PROGMEM init1[] = {
@@ -545,20 +534,15 @@ void Adafruit_SSD1306::display(void) {
 
   uint16_t count = WIDTH * ((HEIGHT + 7) / 8);
   uint8_t *ptr   = buffer;
-    Wire.beginTransmission(i2caddr);
-    Wire.write((uint8_t)0x40);
-    uint8_t bytesOut = 1;
-    while(count--) {
-      if(bytesOut >= WIRE_MAX) {
-        Wire.endTransmission();
-        Wire.beginTransmission(i2caddr);
-        Wire.write((uint8_t)0x40);
-        bytesOut = 1;
-      }
-      Wire.write(*ptr++);
-      bytesOut++;
-    }
-    Wire.endTransmission();
+  uint8_t cmd = 0x40;
+  while(count >= (WIRE_MAX)){
+    TWI_Start_Transceiver_With_Data(cmd, ptr, WIRE_MAX);
+    count -= (WIRE_MAX);
+    ptr += (WIRE_MAX);
+  }
+  if(count > 0) {
+    TWI_Start_Transceiver_With_Data(cmd, ptr, count);
+  }
 }
 
 // OTHER HARDWARE SETTINGS -------------------------------------------------

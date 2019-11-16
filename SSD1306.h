@@ -24,7 +24,7 @@
 #ifndef _Adafruit_SSD1306_H_
 #define _Adafruit_SSD1306_H_
 
-#include <Wire.h>
+#include "TWI_Master.h"
 #include <Adafruit_GFX.h>
 
 /// The following "raw" color names are kept for backwards client compatability
