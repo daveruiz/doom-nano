@@ -213,10 +213,10 @@ void drawSprite(
         continue;
       }
 
-      pixel = read_bit(pgm_read_byte(bitmap + byte_offset), sx % 8);
       maskPixel = read_bit(pgm_read_byte(mask + byte_offset), sx % 8);
 
       if (maskPixel) {
+        pixel = read_bit(pgm_read_byte(bitmap + byte_offset), sx % 8);
         for (uint8_t ox = 0; ox < pixel_size; ox++) {
           for (uint8_t oy = 0; oy < pixel_size; oy++) {
             drawPixel(x + tx + ox, y + ty + oy, pixel, true);
