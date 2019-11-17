@@ -25,7 +25,7 @@
 #define _Adafruit_SSD1306_H_
 
 #include "TWI_Master.h"
-#include <Adafruit_GFX.h>
+#include "GFX.h"
 
 /// The following "raw" color names are kept for backwards client compatability
 /// They can be disabled by predefining this macro before including the Adafruit header

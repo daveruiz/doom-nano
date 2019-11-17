@@ -48,7 +48,6 @@
  #include <util/delay.h>
 #endif
 
-#include <Adafruit_GFX.h>
 #include "SSD1306.h"
 
 // SOME DEFINES AND STATIC VARIABLES USED INTERNALLY -----------------------
