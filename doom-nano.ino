@@ -689,7 +689,8 @@ void loopGamePlay() {
     fps();
 
     // Clear only the 3d view
-    display.fillRect(0, 0, SCREEN_WIDTH, RENDER_HEIGHT, 0);
+    memset(display_buf, 0, SCREEN_WIDTH * (RENDER_HEIGHT / 8));
+
 
     // If the player is alive
     if (player.health > 0) {
