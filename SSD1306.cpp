@@ -470,6 +470,12 @@ void Adafruit_SSD1306::drawFastVLineInternal(
   } // endif x in bounds
 }
 
+void Adafruit_SSD1306::clearRect(uint8_t x, uint8_t y, uint8_t w , uint8_t h) {
+  for (int16_t i=x; i<x+w; i++) {
+    drawFastVLineInternal(i, y, h, 0);
+  }
+}
+
 /*!
     @brief  Return color of a single pixel in display buffer.
     @param  x

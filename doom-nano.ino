@@ -638,15 +638,16 @@ void renderHud() {
 
 // Render values for the HUD
 void updateHud() {
-  display.fillRect(12, 58, 15, 6, 0);
-  display.fillRect(50, 58, 5, 6, 0);
+  display.clearRect(12, 58, 15, 6);
+  display.clearRect(50, 58, 5, 6);
+
   drawText(12, 58, player.health);
   drawText(50, 58, player.keys);
 }
 
 // Debug stats
 void renderStats() {
-  display.fillRect(58, 58, 70, 6, 0);
+  display.clearRect(58, 58, 70, 6);
   drawText(114, 58, int(getActualFps()));
   drawText(82, 58, num_entities);
   // drawText(94, 58, freeMemory());
