@@ -239,20 +239,6 @@ boolean Adafruit_SSD1306::begin(uint8_t vcs, uint8_t addr) {
 void Adafruit_SSD1306::drawPixel(int16_t x, int16_t y, uint16_t color) {
   if((x >= 0) && (x < width()) && (y >= 0) && (y < height())) {
     // Pixel is in-bounds. Rotate coordinates if needed.
-    switch(getRotation()) {
-     case 1:
-      ssd1306_swap(x, y);
-      x = WIDTH - x - 1;
-      break;
-     case 2:
-      x = WIDTH  - x - 1;
-      y = HEIGHT - y - 1;
-      break;
-     case 3:
-      ssd1306_swap(x, y);
-      y = HEIGHT - y - 1;
-      break;
-    }
     switch(color) {
      case SSD1306_WHITE:   buffer[x + (y/8)*WIDTH] |=  (1 << (y&7)); break;
      case SSD1306_BLACK:   buffer[x + (y/8)*WIDTH] &= ~(1 << (y&7)); break;
@@ -273,75 +259,6 @@ void Adafruit_SSD1306::clearDisplay(void) {
 }
 
 /*!
-    @brief  Draw a horizontal line. This is also invoked by the Adafruit_GFX
-            library in generating many higher-level graphics primitives.
-    @param  x
-            Leftmost column -- 0 at left to (screen width - 1) at right.
-    @param  y
-            Row of display -- 0 at top to (screen height -1) at bottom.
-    @param  w
-            Width of line, in pixels.
-    @param  color
-            Line color, one of: SSD1306_BLACK, SSD1306_WHITE or SSD1306_INVERT.
-    @return None (void).
-    @note   Changes buffer contents only, no immediate effect on display.
-            Follow up with a call to display(), or with other graphics
-            commands as needed by one's own application.
-*/
-void Adafruit_SSD1306::drawFastHLine(
-  int16_t x, int16_t y, int16_t w, uint16_t color) {
-  boolean bSwap = false;
-  switch(rotation) {
-   case 1:
-    // 90 degree rotation, swap x & y for rotation, then invert x
-    bSwap = true;
-    ssd1306_swap(x, y);
-    x = WIDTH - x - 1;
-    break;
-   case 2:
-    // 180 degree rotation, invert x and y, then shift y around for height.
-    x  = WIDTH  - x - 1;
-    y  = HEIGHT - y - 1;
-    x -= (w-1);
-    break;
-   case 3:
-    // 270 degree rotation, swap x & y for rotation,
-    // then invert y and adjust y for w (not to become h)
-    bSwap = true;
-    ssd1306_swap(x, y);
-    y  = HEIGHT - y - 1;
-    y -= (w-1);
-    break;
-  }
-
-  if(bSwap) drawFastVLineInternal(x, y, w, color);
-  else      drawFastHLineInternal(x, y, w, color);
-}
-
-void Adafruit_SSD1306::drawFastHLineInternal(
-  int16_t x, int16_t y, int16_t w, uint16_t color) {
-
-  if((y >= 0) && (y < HEIGHT)) { // Y coord in bounds?
-    if(x < 0) { // Clip left
-      w += x;
-      x  = 0;
-    }
-    if((x + w) > WIDTH) { // Clip right
-      w = (WIDTH - x);
-    }
-    if(w > 0) { // Proceed only if width is positive
-      uint8_t *pBuf = &buffer[(y / 8) * WIDTH + x],
-               mask = 1 << (y & 7);
-      switch(color) {
-       case SSD1306_WHITE:               while(w--) { *pBuf++ |= mask; }; break;
-       case SSD1306_BLACK: mask = ~mask; while(w--) { *pBuf++ &= mask; }; break;
-       case SSD1306_INVERSE:             while(w--) { *pBuf++ ^= mask; }; break;
-      }
-    }
-  }
-}
-
-/*!
     @brief  Draw a vertical line. This is also invoked by the Adafruit_GFX
             library in generating many higher-level graphics primitives.
     @param  x
@@ -359,32 +276,7 @@ void Adafruit_SSD1306::drawFastHLineInternal(
 */
 void Adafruit_SSD1306::drawFastVLine(
   int16_t x, int16_t y, int16_t h, uint16_t color) {
-  boolean bSwap = false;
-  switch(rotation) {
-   case 1:
-    // 90 degree rotation, swap x & y for rotation,
-    // then invert x and adjust x for h (now to become w)
-    bSwap = true;
-    ssd1306_swap(x, y);
-    x  = WIDTH - x - 1;
-    x -= (h-1);
-    break;
-   case 2:
-    // 180 degree rotation, invert x and y, then shift y around for height.
-    x = WIDTH  - x - 1;
-    y = HEIGHT - y - 1;
-    y -= (h-1);
-    break;
-   case 3:
-    // 270 degree rotation, swap x & y for rotation, then invert y
-    bSwap = true;
-    ssd1306_swap(x, y);
-    y = HEIGHT - y - 1;
-    break;
-  }
-
-  if(bSwap) drawFastHLineInternal(x, y, h, color);
-  else      drawFastVLineInternal(x, y, h, color);
+  drawFastVLineInternal(x, y, h, color);
 }
 
 void Adafruit_SSD1306::drawFastVLineInternal(
@@ -490,20 +382,6 @@ void Adafruit_SSD1306::clearRect(uint8_t x, uint8_t y, uint8_t w , uint8_t h) {
 boolean Adafruit_SSD1306::getPixel(int16_t x, int16_t y) {
   if((x >= 0) && (x < width()) && (y >= 0) && (y < height())) {
     // Pixel is in-bounds. Rotate coordinates if needed.
-    switch(getRotation()) {
-     case 1:
-      ssd1306_swap(x, y);
-      x = WIDTH - x - 1;
-      break;
-     case 2:
-      x = WIDTH  - x - 1;
-      y = HEIGHT - y - 1;
-      break;
-     case 3:
-      ssd1306_swap(x, y);
-      y = HEIGHT - y - 1;
-      break;
-    }
     return (buffer[x + (y / 8) * WIDTH] & (1 << (y & 7)));
   }
   return false; // Pixel out of bounds

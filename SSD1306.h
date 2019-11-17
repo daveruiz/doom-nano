@@ -94,15 +94,12 @@ class Adafruit_SSD1306 : public Adafruit_GFX {
   void         clearDisplay(void);
   void         invertDisplay(boolean i);
   void         drawPixel(int16_t x, int16_t y, uint16_t color);
-  virtual void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
   virtual void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
   boolean      getPixel(int16_t x, int16_t y);
   uint8_t     *getBuffer(void);
   void clearRect(uint8_t, uint8_t, uint8_t, uint8_t);
 
  private:
-  void         drawFastHLineInternal(int16_t x, int16_t y, int16_t w,
-                 uint16_t color);
   void         drawFastVLineInternal(int16_t x, int16_t y, int16_t h,
                  uint16_t color);
   void         ssd1306_command1(uint8_t c);
