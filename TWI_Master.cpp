@@ -49,7 +49,7 @@
 #include "TWI_Master.h"
 
 static unsigned char TWI_buf[ TWI_BUFFER_SIZE ];    // Transceiver buffer
-static unsigned char TWI_msgSize;                   // Number of bytes to be transmitted.
+static uint16_t TWI_msgSize;                   // Number of bytes to be transmitted.
 static unsigned char TWI_state = TWI_NO_STATE;      // State byte. Default set to TWI_NO_STATE.
 static unsigned char lastTransOK; 
 
@@ -93,7 +93,7 @@ from the slave. Also include how many bytes that should be sent/read including t
 The function will hold execution (loop) until the TWI_ISR has completed with the previous operation,
 then initialize the next operation and return.
 ****************************************************************************/
-void TWI_Start_Transceiver_With_Data( uint8_t cmd, unsigned char *msg, unsigned char msgSize )
+void TWI_Start_Transceiver_With_Data( uint8_t cmd, unsigned char *msg, uint16_t msgSize )
 {
   while ( TWI_Transceiver_Busy() );             // Wait until TWI is ready for next transmission.
 
@@ -101,7 +101,7 @@ void TWI_Start_Transceiver_With_Data( uint8_t cmd, unsigned char *msg, unsigned 
   TWI_buf[0]  = TWI_ADDR;                         // Store slave address with R/W setting.
   TWI_buf[1] = cmd;
 
-  for (uint8_t i = 2; msgSize--; i++ ) {
+  for (uint16_t i = 2; msgSize--; i++ ) {
     TWI_buf[i] = *msg++;
   }
 
@@ -161,7 +161,7 @@ application.
 ****************************************************************************/
 ISR(TWI_vect)
 {
-  static unsigned char TWI_bufPtr;
+  static uint16_t TWI_bufPtr;
   
   switch (TWSR)
   {

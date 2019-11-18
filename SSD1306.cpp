@@ -52,7 +52,7 @@
 
 // SOME DEFINES AND STATIC VARIABLES USED INTERNALLY -----------------------
 
-#define WIRE_MAX 224
+constexpr uint16_t WIRE_MAX = 256;
 
 
 #define ssd1306_swap(a, b) \
@@ -89,14 +89,7 @@ void Adafruit_SSD1306::ssd1306_commandList(const uint8_t *c, uint8_t n) {
   uint8_t tmp[n];
 
   uint8_t * tmpptr = static_cast<uint8_t *>(memcpy_P(tmp, c, n));
-  while(n >= WIRE_MAX) {
-    TWI_Start_Transceiver_With_Data(cmd, tmpptr, WIRE_MAX);
-    n -= (WIRE_MAX);
-    tmpptr += (WIRE_MAX);
-  }
-  if(n > 0) {
-    TWI_Start_Transceiver_With_Data(cmd, tmpptr, n);
-  }
+  TWI_Start_Transceiver_With_Data(cmd, tmpptr, n);
 }
 
 // ALLOCATE & INIT DISPLAY -------------------------------------------------

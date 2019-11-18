@@ -47,7 +47,7 @@
 /****************************************************************************
   TWI Status/Control register definitions
 ****************************************************************************/
-#define TWI_BUFFER_SIZE 226   // Set this to the largest message size that will be sent including address byte.
+constexpr uint16_t TWI_BUFFER_SIZE = 258;   // Set this to the largest message size that will be sent including address byte.
 #define TWI_FREQ 400000UL
 #define TWI_ADDR 0x78 // 0x3C << 1
 
@@ -57,7 +57,7 @@
 void TWI_Master_Initialise( void );
 unsigned char TWI_Transceiver_Busy( void );
 unsigned char TWI_Get_State_Info( void );
-void TWI_Start_Transceiver_With_Data( uint8_t cmd, unsigned char * , unsigned char );
+void TWI_Start_Transceiver_With_Data( uint8_t cmd, unsigned char * , uint16_t);
 void TWI_Start_Transceiver( void );
 unsigned char TWI_Get_Data_From_Transceiver( unsigned char *, unsigned char );
 
