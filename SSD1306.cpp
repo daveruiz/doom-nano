@@ -49,6 +49,7 @@
 #endif
 
 #include "SSD1306.h"
+#include <stdlib.h>     /* malloc, free, rand */
 
 // SOME DEFINES AND STATIC VARIABLES USED INTERNALLY -----------------------
 
@@ -129,8 +130,7 @@ void Adafruit_SSD1306::ssd1306_commandList(const uint8_t *c, uint8_t n) {
             proceeding.
     @note   MUST call this function before any drawing or updates!
 */
-boolean Adafruit_SSD1306::begin(uint8_t vcs, uint8_t addr) {
-
+bool Adafruit_SSD1306::begin(uint8_t vcs, uint8_t addr) {
   if((!buffer) && !(buffer = (uint8_t *)malloc(WIDTH * ((HEIGHT + 7) / 8))))
     return false;
 
@@ -230,7 +230,7 @@ boolean Adafruit_SSD1306::begin(uint8_t vcs, uint8_t addr) {
             commands as needed by one's own application.
 */
 void Adafruit_SSD1306::drawPixel(int16_t x, int16_t y, uint16_t color) {
-  if((x >= 0) && (x < width()) && (y >= 0) && (y < height())) {
+  if((x >= 0) && (x < WIDTH) && (y >= 0) && (y < HEIGHT)) {
     // Pixel is in-bounds. Rotate coordinates if needed.
     switch(color) {
      case SSD1306_WHITE:   buffer[x + (y/8)*WIDTH] |=  (1 << (y&7)); break;
@@ -361,6 +361,21 @@ void Adafruit_SSD1306::clearRect(uint8_t x, uint8_t y, uint8_t w , uint8_t h) {
   }
 }
 
+void Adafruit_SSD1306::drawBitmap(int16_t x, int16_t y,
+  const uint8_t bitmap[], int16_t w, int16_t h, uint16_t color) {
+
+    int16_t byteWidth = (w + 7) / 8; // Bitmap scanline pad = whole byte
+    uint8_t byte = 0;
+
+    for(int16_t j=0; j<h; j++, y++) {
+        for(int16_t i=0; i<w; i++) {
+            if(i & 7) byte <<= 1;
+            else      byte   = pgm_read_byte(&bitmap[j * byteWidth + i / 8]);
+            if(byte & 0x80) drawPixel(x+i, y, color);
+        }
+    }
+}
+
 /*!
     @brief  Return color of a single pixel in display buffer.
     @param  x
@@ -372,8 +387,8 @@ void Adafruit_SSD1306::clearRect(uint8_t x, uint8_t y, uint8_t w , uint8_t h) {
     @note   Reads from buffer contents; may not reflect current contents of
             screen if display() has not been called.
 */
-boolean Adafruit_SSD1306::getPixel(int16_t x, int16_t y) {
-  if((x >= 0) && (x < width()) && (y >= 0) && (y < height())) {
+bool Adafruit_SSD1306::getPixel(int16_t x, int16_t y) {
+  if((x >= 0) && (x < WIDTH) && (y >= 0) && (y < HEIGHT)) {
     // Pixel is in-bounds. Rotate coordinates if needed.
     return (buffer[x + (y / 8) * WIDTH] & (1 << (y & 7)));
   }
@@ -436,6 +451,6 @@ void Adafruit_SSD1306::display(void) {
             enabled, drawing SSD1306_BLACK (value 0) pixels will actually draw white,
             SSD1306_WHITE (value 1) will draw black.
 */
-void Adafruit_SSD1306::invertDisplay(boolean i) {
+void Adafruit_SSD1306::invertDisplay(bool i) {
   ssd1306_command1(i ? SSD1306_INVERTDISPLAY : SSD1306_NORMALDISPLAY);
 }

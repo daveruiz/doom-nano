@@ -25,7 +25,7 @@
 #define _Adafruit_SSD1306_H_
 
 #include "TWI_Master.h"
-#include "GFX.h"
+#include "string.h"
 
 /// The following "raw" color names are kept for backwards client compatability
 /// They can be disabled by predefining this macro before including the Adafruit header
@@ -80,24 +80,25 @@
     @brief  Class that stores state and functions for interacting with
             SSD1306 OLED displays.
 */
-class Adafruit_SSD1306 : public Adafruit_GFX {
+class Adafruit_SSD1306 {
  public:
   Adafruit_SSD1306(uint8_t w, uint8_t h) :
-    Adafruit_GFX(w, h), buffer(NULL) {
+    WIDTH(w), HEIGHT(h) {
   }
 
   ~Adafruit_SSD1306(void);
 
-  boolean      begin(uint8_t switchvcc=SSD1306_SWITCHCAPVCC,
+  bool      begin(uint8_t switchvcc=SSD1306_SWITCHCAPVCC,
                  uint8_t i2caddr=0);
   void         display(void);
   void         clearDisplay(void);
-  void         invertDisplay(boolean i);
+  void         invertDisplay(bool i);
   void         drawPixel(int16_t x, int16_t y, uint16_t color);
   virtual void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
-  boolean      getPixel(int16_t x, int16_t y);
+  bool      getPixel(int16_t x, int16_t y);
   uint8_t     *getBuffer(void);
   void clearRect(uint8_t, uint8_t, uint8_t, uint8_t);
+  void drawBitmap(int16_t x, int16_t y, const uint8_t bitmap[], int16_t w, int16_t h, uint16_t color);
 
  private:
   void         drawFastVLineInternal(int16_t x, int16_t y, int16_t h,
@@ -107,6 +108,8 @@ class Adafruit_SSD1306 : public Adafruit_GFX {
 
   uint8_t     *buffer;
   int8_t       i2caddr, vccstate, page_end;
+  uint16_t  WIDTH,          ///< This is the 'raw' display width - never changes
+    HEIGHT;         ///< This is the 'raw' display height - never changes
 };
 
 #endif // _Adafruit_SSD1306_H_
