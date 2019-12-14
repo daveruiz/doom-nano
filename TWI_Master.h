@@ -47,7 +47,7 @@
 /****************************************************************************
   TWI Status/Control register definitions
 ****************************************************************************/
-constexpr uint16_t TWI_BUFFER_SIZE = 258;   // Set this to the largest message size that will be sent including address byte.
+constexpr uint16_t TWI_BUFFER_SIZE = 344;   // Set this to the largest message size that will be sent including address byte.
 #define TWI_FREQ 400000UL
 #define TWI_ADDR 0x78 // 0x3C << 1
 

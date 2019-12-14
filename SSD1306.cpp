@@ -52,8 +52,7 @@
 
 // SOME DEFINES AND STATIC VARIABLES USED INTERNALLY -----------------------
 
-constexpr uint16_t WIRE_MAX = 256;
-
+constexpr uint16_t WIRE_MAX = 342;
 
 #define ssd1306_swap(a, b) \
   (((a) ^= (b)), ((b) ^= (a)), ((a) ^= (b))) ///< No-temp-var swap operation
