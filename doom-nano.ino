@@ -37,8 +37,8 @@ void jumpTo(uint8_t target_scene) {
 
 // Finds the player in the map
 void initializeLevel(const uint8_t level[]) {
-  for (int y = LEVEL_HEIGHT - 1; y >= 0; y--) {
-    for (int x = 0; x < LEVEL_WIDTH; x++) {
+  for (uint8_t y = LEVEL_HEIGHT - 1; y >= 0; y--) {
+    for (uint8_t x = 0; x < LEVEL_WIDTH; x++) {
       uint8_t block = getBlockAt(level, x, y);
 
       if (block == E_PLAYER) {
