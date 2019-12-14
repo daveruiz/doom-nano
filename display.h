@@ -269,7 +269,7 @@ void drawText(int8_t x, int8_t y, const __FlashStringHelper *txt_p, uint8_t spac
 }
 
 // Draw an integer (3 digit max!)
-void drawText(int8_t x, int8_t y, int num) {
+void drawText(uint8_t x, uint8_t y, uint8_t num) {
   char buf[4]; // 3 char + \0
   itoa(num, buf, 10);
   drawText(x, y, buf);
