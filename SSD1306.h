@@ -26,6 +26,7 @@
 
 #include "TWI_Master.h"
 #include "string.h"
+#include "constants.h"
 
 /// The following "raw" color names are kept for backwards client compatability
 /// They can be disabled by predefining this macro before including the Adafruit header
@@ -80,13 +81,12 @@
     @brief  Class that stores state and functions for interacting with
             SSD1306 OLED displays.
 */
+template <uint8_t WIDTH, uint8_t HEIGHT>
 class Adafruit_SSD1306 {
  public:
-  Adafruit_SSD1306(uint8_t w, uint8_t h) :
-    WIDTH(w), HEIGHT(h) {
-  }
+  Adafruit_SSD1306() = default;
 
-  ~Adafruit_SSD1306(void);
+  ~Adafruit_SSD1306(void) = default;
 
   bool      begin(uint8_t switchvcc=SSD1306_SWITCHCAPVCC,
                  uint8_t i2caddr=0);
@@ -94,7 +94,7 @@ class Adafruit_SSD1306 {
   void         clearDisplay(void);
   void         invertDisplay(bool i);
   void         drawPixel(int16_t x, int16_t y, uint16_t color);
-  virtual void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
+  void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
   bool      getPixel(int16_t x, int16_t y);
   uint8_t     *getBuffer(void);
   void clearRect(uint8_t, uint8_t, uint8_t, uint8_t);
@@ -106,10 +106,10 @@ class Adafruit_SSD1306 {
   void         ssd1306_command1(uint8_t c);
   void         ssd1306_commandList(const uint8_t *c, uint8_t n);
 
-  uint8_t     *buffer;
+  uint8_t     buffer[WIDTH * ((HEIGHT + 7) / 8)];
   int8_t       i2caddr, vccstate, page_end;
-  uint16_t  WIDTH,          ///< This is the 'raw' display width - never changes
-    HEIGHT;         ///< This is the 'raw' display height - never changes
 };
+
+template class Adafruit_SSD1306<SCREEN_WIDTH, SCREEN_HEIGHT>;
 
 #endif // _Adafruit_SSD1306_H_

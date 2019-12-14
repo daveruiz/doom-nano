@@ -49,7 +49,6 @@
 #endif
 
 #include "SSD1306.h"
-#include <stdlib.h>     /* malloc, free, rand */
 
 // SOME DEFINES AND STATIC VARIABLES USED INTERNALLY -----------------------
 
@@ -59,33 +58,22 @@ constexpr uint16_t WIRE_MAX = 256;
 #define ssd1306_swap(a, b) \
   (((a) ^= (b)), ((b) ^= (a)), ((a) ^= (b))) ///< No-temp-var swap operation
 
-
-// CONSTRUCTORS, DESTRUCTOR ------------------------------------------------
-
-/*!
-    @brief  Destructor for Adafruit_SSD1306 object.
-*/
-Adafruit_SSD1306::~Adafruit_SSD1306(void) {
-  if(buffer) {
-    free(buffer);
-    buffer = NULL;
-  }
-}
-
 // LOW-LEVEL UTILS ---------------------------------------------------------
 
 // Issue single command to SSD1306, using I2C or hard/soft SPI as needed.
 // Because command calls are often grouped, SPI transaction and selection
 // must be started/ended in calling function for efficiency.
 // This is a private function, not exposed (see ssd1306_command() instead).
-void Adafruit_SSD1306::ssd1306_command1(uint8_t c) {
+template <uint8_t WIDTH, uint8_t HEIGHT>
+void Adafruit_SSD1306<WIDTH, HEIGHT>::ssd1306_command1(uint8_t c) {
   uint8_t cmd = 0x00; // Co = 0, D/C = 0
   TWI_Start_Transceiver_With_Data(cmd, &c, 1);
 }
 
 // Issue list of commands to SSD1306, same rules as above re: transactions.
 // This is a private function, not exposed.
-void Adafruit_SSD1306::ssd1306_commandList(const uint8_t *c, uint8_t n) {
+template <uint8_t WIDTH, uint8_t HEIGHT>
+void Adafruit_SSD1306<WIDTH, HEIGHT>::ssd1306_commandList(const uint8_t *c, uint8_t n) {
   uint8_t cmd = 0x00; // Co = 0, D/C = 0
   uint8_t tmp[n];
 
@@ -130,9 +118,8 @@ void Adafruit_SSD1306::ssd1306_commandList(const uint8_t *c, uint8_t n) {
             proceeding.
     @note   MUST call this function before any drawing or updates!
 */
-bool Adafruit_SSD1306::begin(uint8_t vcs, uint8_t addr) {
-  if((!buffer) && !(buffer = (uint8_t *)malloc(WIDTH * ((HEIGHT + 7) / 8))))
-    return false;
+template <uint8_t WIDTH, uint8_t HEIGHT>
+bool Adafruit_SSD1306<WIDTH, HEIGHT>::begin(uint8_t vcs, uint8_t addr) {
 
   clearDisplay();
 
@@ -229,7 +216,8 @@ bool Adafruit_SSD1306::begin(uint8_t vcs, uint8_t addr) {
             Follow up with a call to display(), or with other graphics
             commands as needed by one's own application.
 */
-void Adafruit_SSD1306::drawPixel(int16_t x, int16_t y, uint16_t color) {
+template <uint8_t WIDTH, uint8_t HEIGHT>
+void Adafruit_SSD1306<WIDTH, HEIGHT>::drawPixel(int16_t x, int16_t y, uint16_t color) {
   if((x >= 0) && (x < WIDTH) && (y >= 0) && (y < HEIGHT)) {
     // Pixel is in-bounds. Rotate coordinates if needed.
     switch(color) {
@@ -247,7 +235,8 @@ void Adafruit_SSD1306::drawPixel(int16_t x, int16_t y, uint16_t color) {
             Follow up with a call to display(), or with other graphics
             commands as needed by one's own application.
 */
-void Adafruit_SSD1306::clearDisplay(void) {
+template <uint8_t WIDTH, uint8_t HEIGHT>
+void Adafruit_SSD1306<WIDTH, HEIGHT>::clearDisplay(void) {
   memset(buffer, 0, WIDTH * ((HEIGHT + 7) / 8));
 }
 
@@ -267,12 +256,14 @@ void Adafruit_SSD1306::clearDisplay(void) {
             Follow up with a call to display(), or with other graphics
             commands as needed by one's own application.
 */
-void Adafruit_SSD1306::drawFastVLine(
+template <uint8_t WIDTH, uint8_t HEIGHT>
+void Adafruit_SSD1306<WIDTH, HEIGHT>::drawFastVLine(
   int16_t x, int16_t y, int16_t h, uint16_t color) {
   drawFastVLineInternal(x, y, h, color);
 }
 
-void Adafruit_SSD1306::drawFastVLineInternal(
+template <uint8_t WIDTH, uint8_t HEIGHT>
+void Adafruit_SSD1306<WIDTH, HEIGHT>::drawFastVLineInternal(
   int16_t x, int16_t __y, int16_t __h, uint16_t color) {
 
   if((x >= 0) && (x < WIDTH)) { // X coord in bounds?
@@ -355,13 +346,15 @@ void Adafruit_SSD1306::drawFastVLineInternal(
   } // endif x in bounds
 }
 
-void Adafruit_SSD1306::clearRect(uint8_t x, uint8_t y, uint8_t w , uint8_t h) {
+template <uint8_t WIDTH, uint8_t HEIGHT>
+void Adafruit_SSD1306<WIDTH, HEIGHT>::clearRect(uint8_t x, uint8_t y, uint8_t w , uint8_t h) {
   for (int16_t i=x; i<x+w; i++) {
     drawFastVLineInternal(i, y, h, 0);
   }
 }
 
-void Adafruit_SSD1306::drawBitmap(int16_t x, int16_t y,
+template <uint8_t WIDTH, uint8_t HEIGHT>
+void Adafruit_SSD1306<WIDTH, HEIGHT>::drawBitmap(int16_t x, int16_t y,
   const uint8_t bitmap[], int16_t w, int16_t h, uint16_t color) {
 
     int16_t byteWidth = (w + 7) / 8; // Bitmap scanline pad = whole byte
@@ -387,7 +380,8 @@ void Adafruit_SSD1306::drawBitmap(int16_t x, int16_t y,
     @note   Reads from buffer contents; may not reflect current contents of
             screen if display() has not been called.
 */
-bool Adafruit_SSD1306::getPixel(int16_t x, int16_t y) {
+template <uint8_t WIDTH, uint8_t HEIGHT>
+bool Adafruit_SSD1306<WIDTH, HEIGHT>::getPixel(int16_t x, int16_t y) {
   if((x >= 0) && (x < WIDTH) && (y >= 0) && (y < HEIGHT)) {
     // Pixel is in-bounds. Rotate coordinates if needed.
     return (buffer[x + (y / 8) * WIDTH] & (1 << (y & 7)));
@@ -400,7 +394,8 @@ bool Adafruit_SSD1306::getPixel(int16_t x, int16_t y) {
     @return Pointer to an unsigned 8-bit array, column-major, columns padded
             to full byte boundary if needed.
 */
-uint8_t *Adafruit_SSD1306::getBuffer(void) {
+template <uint8_t WIDTH, uint8_t HEIGHT>
+uint8_t *Adafruit_SSD1306<WIDTH, HEIGHT>::getBuffer(void) {
   return buffer;
 }
 
@@ -413,7 +408,8 @@ uint8_t *Adafruit_SSD1306::getBuffer(void) {
             called. Call after each graphics command, or after a whole set
             of graphics commands, as best needed by one's own application.
 */
-void Adafruit_SSD1306::display(void) {
+template <uint8_t WIDTH, uint8_t HEIGHT>
+void Adafruit_SSD1306<WIDTH, HEIGHT>::display(void) {
   static const uint8_t PROGMEM dlist1[] = {
     SSD1306_PAGEADDR,
     0,                         // Page start address
@@ -451,6 +447,7 @@ void Adafruit_SSD1306::display(void) {
             enabled, drawing SSD1306_BLACK (value 0) pixels will actually draw white,
             SSD1306_WHITE (value 1) will draw black.
 */
-void Adafruit_SSD1306::invertDisplay(bool i) {
+template <uint8_t WIDTH, uint8_t HEIGHT>
+void Adafruit_SSD1306<WIDTH, HEIGHT>::invertDisplay(bool i) {
   ssd1306_command1(i ? SSD1306_INVERTDISPLAY : SSD1306_NORMALDISPLAY);
 }
