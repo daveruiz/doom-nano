@@ -16,6 +16,9 @@ constexpr uint8_t DATA_CLOCK   = 11;
 constexpr uint8_t DATA_LATCH   = 12;
 constexpr uint8_t DATA_SERIAL  = 13;
 
+// Sound
+constexpr uint8_t SOUND_PIN   = 9; // do not change, belongs to used timer
+
 // GFX settings
 #define OPTIMIZE_SSD1306                // Optimizations for SSD1366 displays
 

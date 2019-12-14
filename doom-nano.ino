@@ -5,6 +5,7 @@
 #include "entities.h"
 #include "types.h"
 #include "display.h"
+#include "sound.h"
 
 // Useful macros
 #define swap(a, b)            do { typeof(a) temp = a; a = b; b = temp; } while (0)
@@ -27,6 +28,7 @@ uint8_t num_static_entities = 0;
 void setup(void) {
   setupDisplay();
   input_setup();
+  sound_init();
 }
 
 // Jump to another scene
@@ -167,6 +169,7 @@ UID detectCollision(const uint8_t level[], Coords *pos, double relative_x, doubl
   uint8_t block = getBlockAt(level, round_x, round_y);
 
   if (block == E_WALL) {
+    playSound(hit_wall_snd, HIT_WALL_SND_LEN);
     return create_uid(block, round_x, round_y);
   }
 
@@ -202,6 +205,8 @@ UID detectCollision(const uint8_t level[], Coords *pos, double relative_x, doubl
 
 // Shoot
 void fire() {
+  playSound(shoot_snd, SHOOT_SND_LEN);
+
   for (uint8_t i = 0; i < num_entities; i++) {
     // Shoot only ALIVE enemies
     if (uid_get_type(entity[i].uid) != E_ENEMY || entity[i].state == S_DEAD || entity[i].state == S_HIDDEN) {
@@ -360,6 +365,7 @@ void updateEntities(const uint8_t level[]) {
       case E_KEY: {
           if (entity[i].distance < ITEM_COLLIDER_DIST) {
             // pickup
+            playSound(get_key_snd, GET_KEY_SND_LEN);
             entity[i].state = S_HIDDEN;
             player.keys++;
             updateHud();
@@ -679,6 +685,7 @@ void loopIntro() {
 
 void loopGamePlay() {
   bool gun_fired = false;
+  bool walkSoundToggle = false;
   uint8_t gun_pos = 0;
   double rot_speed;
   double old_dir_x;
@@ -734,6 +741,17 @@ void loopGamePlay() {
 
       view_height = abs(sin((double) millis() * JOGGING_SPEED)) * 6 * jogging;
 
+      if(view_height > 5.9) {
+        if(sound == false) {
+          if(walkSoundToggle) {
+            playSound(walk1_snd, WALK1_SND_LEN);
+            walkSoundToggle = false;
+          } else {
+            playSound(walk2_snd, WALK2_SND_LEN);
+            walkSoundToggle = true;
+          }
+        }
+      }
       // Update gun
       if (gun_pos > GUN_TARGET_POS) {
         // Right after fire
