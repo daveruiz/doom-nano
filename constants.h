@@ -6,7 +6,7 @@
 #define K_LEFT              6
 #define K_RIGHT             7
 #define K_UP                8
-#define K_DOWN              9
+#define K_DOWN              3
 #define K_FIRE              10
 
 // GFX settings
