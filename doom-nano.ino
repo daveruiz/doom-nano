@@ -670,6 +670,9 @@ void loopIntro() {
 
   // wait for fire
   while (!exit_scene) {
+    #ifdef SNES_CONTROLLER
+    getControllerData();
+    #endif
     if (input_fire()) jumpTo(GAME_PLAY);
   };
 }
@@ -692,6 +695,9 @@ void loopGamePlay() {
     // Clear only the 3d view
     memset(display_buf, 0, SCREEN_WIDTH * (RENDER_HEIGHT / 8));
 
+    #ifdef SNES_CONTROLLER
+    getControllerData();
+    #endif
 
     // If the player is alive
     if (player.health > 0) {
@@ -798,7 +804,11 @@ void loopGamePlay() {
     display.display();
 
     // Exit routine
+    #ifdef SNES_CONTROLLER
+    if (input_start()) {
+    #else
     if (input_left() && input_right()) {
+    #endif
       jumpTo(INTRO);
     }
   } while (!exit_scene);

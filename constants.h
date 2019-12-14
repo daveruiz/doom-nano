@@ -9,6 +9,13 @@
 #define K_DOWN              3
 #define K_FIRE              10
 
+// SNES Controller
+// uncomment following line to enable snes controller support
+// #define SNES_CONTROLLER
+constexpr uint8_t DATA_CLOCK   = 11;
+constexpr uint8_t DATA_LATCH   = 12;
+constexpr uint8_t DATA_SERIAL  = 13;
+
 // GFX settings
 #define OPTIMIZE_SSD1306                // Optimizations for SSD1366 displays
 
