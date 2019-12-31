@@ -354,6 +354,7 @@ void updateEntities(const uint8_t level[]) {
       case E_MEDIKIT: {
           if (entity[i].distance < ITEM_COLLIDER_DIST) {
             // pickup
+            playSound(medkit_snd, MEDKIT_SND_LEN);
             entity[i].state = S_HIDDEN;
             player.health = min(100, player.health + 50);
             updateHud();
