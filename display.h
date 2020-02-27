@@ -1,7 +1,6 @@
 /* 
 todo: Moving this to CPP looks like it takes more Flash storage. Figure out why.
 */
-
 #include <Wire.h>
 #include <Adafruit_SSD1306.h>
 #include "constants.h"
@@ -9,7 +8,7 @@ todo: Moving this to CPP looks like it takes more Flash storage. Figure out why.
 #define SCREEN_WIDTH        128
 #define SCREEN_HEIGHT       64
 #define HALF_WIDTH          64
-#define RENDER_HEIGHT       56          // raycaster working height (rest is for hud)
+#define RENDER_HEIGHT       56          // raycaster working height (the rest is for the hud)
 #define HALF_HEIGHT         32
 #define OLED_RESET          -1          // Reset pin # (or -1 if sharing Arduino reset pin)
 
@@ -192,7 +191,7 @@ void drawSprite(
   bool pixel;
   bool maskPixel;
 
-  // Don't draw if the sprite is hidden by z buffer
+  // Don't draw the whole sprite if the anchor is hidden by z buffer
   // Not checked per pixel for performance reasons
   if (zbuffer[min(max(x, 0), ZBUFFER_SIZE - 1) / Z_RES_DIVIDER] < distance * DISTANCE_MULTIPLIER) {
     return;
