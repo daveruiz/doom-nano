@@ -6,8 +6,18 @@
 #define K_LEFT              6
 #define K_RIGHT             7
 #define K_UP                8
-#define K_DOWN              9
+#define K_DOWN              3
 #define K_FIRE              10
+
+// SNES Controller
+// uncomment following line to enable snes controller support
+// #define SNES_CONTROLLER
+constexpr uint8_t DATA_CLOCK   = 11;
+constexpr uint8_t DATA_LATCH   = 12;
+constexpr uint8_t DATA_SERIAL  = 13;
+
+// Sound
+constexpr uint8_t SOUND_PIN   = 9; // do not change, belongs to used timer
 
 // GFX settings
 #define OPTIMIZE_SSD1306                // Optimizations for SSD1366 displays
@@ -24,7 +34,8 @@
 #define ZBUFFER_SIZE        SCREEN_WIDTH / Z_RES_DIVIDER
 
 // Level 
-#define LEVEL_WIDTH         64
+#define LEVEL_WIDTH_BASE    6
+#define LEVEL_WIDTH         (1 << LEVEL_WIDTH_BASE)
 #define LEVEL_HEIGHT        57
 #define LEVEL_SIZE          LEVEL_WIDTH / 2 * LEVEL_HEIGHT
 
@@ -59,5 +70,12 @@
 #define ENEMY_MELEE_DAMAGE    8
 #define ENEMY_FIREBALL_DAMAGE 20
 #define GUN_MAX_DAMAGE        15
+
+// display
+constexpr uint8_t SCREEN_WIDTH     =  128;
+constexpr uint8_t SCREEN_HEIGHT    =  64;
+constexpr uint8_t HALF_WIDTH       =  SCREEN_WIDTH/2;
+constexpr uint8_t RENDER_HEIGHT    =  56;         // raycaster working height (the rest is for the hud)
+constexpr uint8_t HALF_HEIGHT      =  SCREEN_HEIGHT/2;
 
 #endif

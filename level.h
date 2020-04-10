@@ -2,7 +2,7 @@
 #define _level_h
 
 #include <avr/pgmspace.h>
-#include "constants.h";
+#include "constants.h"
 
 /*
   Based on E1M1 from Wolfenstein 3D

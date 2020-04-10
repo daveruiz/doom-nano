@@ -5,6 +5,7 @@
 #include "entities.h"
 #include "types.h"
 #include "display.h"
+#include "sound.h"
 
 // Useful macros
 #define swap(a, b)            do { typeof(a) temp = a; a = b; b = temp; } while (0)
@@ -27,6 +28,7 @@ uint8_t num_static_entities = 0;
 void setup(void) {
   setupDisplay();
   input_setup();
+  sound_init();
 }
 
 // Jump to another scene
@@ -37,8 +39,8 @@ void jumpTo(uint8_t target_scene) {
 
 // Finds the player in the map
 void initializeLevel(const uint8_t level[]) {
-  for (int y = LEVEL_HEIGHT - 1; y >= 0; y--) {
-    for (int x = 0; x < LEVEL_WIDTH; x++) {
+  for (uint8_t y = LEVEL_HEIGHT - 1; y >= 0; y--) {
+    for (uint8_t x = 0; x < LEVEL_WIDTH; x++) {
       uint8_t block = getBlockAt(level, x, y);
 
       if (block == E_PLAYER) {
@@ -167,6 +169,7 @@ UID detectCollision(const uint8_t level[], Coords *pos, double relative_x, doubl
   uint8_t block = getBlockAt(level, round_x, round_y);
 
   if (block == E_WALL) {
+    playSound(hit_wall_snd, HIT_WALL_SND_LEN);
     return create_uid(block, round_x, round_y);
   }
 
@@ -202,6 +205,8 @@ UID detectCollision(const uint8_t level[], Coords *pos, double relative_x, doubl
 
 // Shoot
 void fire() {
+  playSound(shoot_snd, SHOOT_SND_LEN);
+
   for (uint8_t i = 0; i < num_entities; i++) {
     // Shoot only ALIVE enemies
     if (uid_get_type(entity[i].uid) != E_ENEMY || entity[i].state == S_DEAD || entity[i].state == S_HIDDEN) {
@@ -349,6 +354,7 @@ void updateEntities(const uint8_t level[]) {
       case E_MEDIKIT: {
           if (entity[i].distance < ITEM_COLLIDER_DIST) {
             // pickup
+            playSound(medkit_snd, MEDKIT_SND_LEN);
             entity[i].state = S_HIDDEN;
             player.health = min(100, player.health + 50);
             updateHud();
@@ -360,6 +366,7 @@ void updateEntities(const uint8_t level[]) {
       case E_KEY: {
           if (entity[i].distance < ITEM_COLLIDER_DIST) {
             // pickup
+            playSound(get_key_snd, GET_KEY_SND_LEN);
             entity[i].state = S_HIDDEN;
             player.keys++;
             updateHud();
@@ -383,7 +390,7 @@ void renderMap(const uint8_t level[], double view_height) {
     double ray_y = player.dir.y + player.plane.y * camera_x;
     uint8_t map_x = uint8_t(player.pos.x);
     uint8_t map_y = uint8_t(player.pos.y);
-    Coords map_coords = { map_x, map_y };
+    Coords map_coords = { player.pos.x, player.pos.y };
     double delta_x = abs(1 / ray_x);
     double delta_y = abs(1 / ray_y);
 
@@ -638,15 +645,16 @@ void renderHud() {
 
 // Render values for the HUD
 void updateHud() {
-  display.fillRect(12, 58, 15, 6, 0);
-  display.fillRect(50, 58, 5, 6, 0);
+  display.clearRect(12, 58, 15, 6);
+  display.clearRect(50, 58, 5, 6);
+
   drawText(12, 58, player.health);
   drawText(50, 58, player.keys);
 }
 
 // Debug stats
 void renderStats() {
-  display.fillRect(58, 58, 70, 6, 0);
+  display.clearRect(58, 58, 70, 6);
   drawText(114, 58, int(getActualFps()));
   drawText(82, 58, num_entities);
   // drawText(94, 58, freeMemory());
@@ -669,12 +677,16 @@ void loopIntro() {
 
   // wait for fire
   while (!exit_scene) {
+    #ifdef SNES_CONTROLLER
+    getControllerData();
+    #endif
     if (input_fire()) jumpTo(GAME_PLAY);
   };
 }
 
 void loopGamePlay() {
   bool gun_fired = false;
+  bool walkSoundToggle = false;
   uint8_t gun_pos = 0;
   double rot_speed;
   double old_dir_x;
@@ -689,7 +701,11 @@ void loopGamePlay() {
     fps();
 
     // Clear only the 3d view
-    display.fillRect(0, 0, SCREEN_WIDTH, RENDER_HEIGHT, 0);
+    memset(display_buf, 0, SCREEN_WIDTH * (RENDER_HEIGHT / 8));
+
+    #ifdef SNES_CONTROLLER
+    getControllerData();
+    #endif
 
     // If the player is alive
     if (player.health > 0) {
@@ -726,6 +742,17 @@ void loopGamePlay() {
 
       view_height = abs(sin((double) millis() * JOGGING_SPEED)) * 6 * jogging;
 
+      if(view_height > 5.9) {
+        if(sound == false) {
+          if(walkSoundToggle) {
+            playSound(walk1_snd, WALK1_SND_LEN);
+            walkSoundToggle = false;
+          } else {
+            playSound(walk2_snd, WALK2_SND_LEN);
+            walkSoundToggle = true;
+          }
+        }
+      }
       // Update gun
       if (gun_pos > GUN_TARGET_POS) {
         // Right after fire
@@ -796,7 +823,11 @@ void loopGamePlay() {
     display.display();
 
     // Exit routine
+    #ifdef SNES_CONTROLLER
+    if (input_start()) {
+    #else
     if (input_left() && input_right()) {
+    #endif
       jumpTo(INTRO);
     }
   } while (!exit_scene);
