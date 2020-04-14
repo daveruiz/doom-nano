@@ -31,8 +31,8 @@ Current status:
 - The enemies AI, despite is very simple, I think works very well and it´s enough for the purpose of the game. Looks very similar to  Imp enemy from original Doom.
 - For the HUD, I realized that the native `print` from Adafruit's library uses too much memory. So I've implemented my custom text rendering methods and a custom font which includes only needed characters and some icons. 
 - ~~Currently I´m using 99% of program memory, which doesn´t let me adds more code. I need to research how to optimize it to make it smaller.~~
-- FPS and memory consumption has been improved using a slim and customized version of the SSD1306 lib from Adafruit. Thanks @miracoli!
-- Now it has a basic sound support through Pin 9. Thanks again @miracoli!
+- FPS and memory consumption has been improved using a slim and customized version of the SSD1306 lib from Adafruit. Thanks  [@miracoly](https://github.com/miracoli)
+- Now it has a basic sound support through Pin 9. Thanks again [@miracoly](https://github.com/miracoli)!
 
 (I'd like) To do:
 - ~~Make possible kill enemies.~~
