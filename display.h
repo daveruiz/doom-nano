@@ -31,10 +31,8 @@ Adafruit_SSD1306<SCREEN_WIDTH, SCREEN_HEIGHT> display;
 double delta = 1;
 uint32_t lastFrameTime = 0;
 
-#ifdef OPTIMIZE_SSD1306
 // Optimizations for SSD1306 handles buffer directly
 uint8_t *display_buf;
-#endif
 
 // We don't handle more than MAX_RENDER_DEPTH depth, so we can safety store
 // z values in a byte with 1 decimal and save some memory,
@@ -48,9 +46,7 @@ void setupDisplay() {
     while (1); // Don't proceed, loop forever
   }
 
-#ifdef OPTIMIZE_SSD1306
   display_buf = display.getBuffer();
-#endif
 
   // initialize z buffer
   memset(zbuffer, 0xFF, ZBUFFER_SIZE);
@@ -70,9 +66,7 @@ double getActualFps() {
 
 // Faster way to render vertical bits
 void drawByte(uint8_t x, uint8_t y, uint8_t b) {
-#ifdef OPTIMIZE_SSD1306
   display_buf[(y / 8)*SCREEN_WIDTH + x] = b;
-#endif
 }
 
 boolean getGradientPixel(uint8_t x, uint8_t y, uint8_t i) {
@@ -104,7 +98,6 @@ void drawPixel(int8_t x, int8_t y, bool color, bool raycasterViewport = false) {
     return;
   }
 
-#ifdef OPTIMIZE_SSD1306
   if (color) {
     // white
     display_buf[x + (y / 8)*SCREEN_WIDTH] |= (1 << (y & 7));
@@ -112,9 +105,6 @@ void drawPixel(int8_t x, int8_t y, bool color, bool raycasterViewport = false) {
     // black
     display_buf[x + (y / 8)*SCREEN_WIDTH] &= ~(1 << (y & 7));
   }
-#else
-  display.drawPixel(x, y, color);
-#endif
 }
 
 // For raycaster only
@@ -126,7 +116,6 @@ void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity) {
   int8_t higher_y = min(max(start_y, end_y), RENDER_HEIGHT - 1);
   uint8_t c;
 
-#ifdef OPTIMIZE_SSD1306
   uint8_t bp;
   uint8_t b;
   for (c = 0; c < RES_DIVIDER; c++) {
@@ -150,19 +139,6 @@ void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity) {
       drawByte(x + c, y - 1, b);
     }
   }
-#else
-  y = lower_y;
-  while (y <= higher_y) {
-    for (c = 0; c < RES_DIVIDER; c++) {
-      // bypass black pixels
-      if (getGradientPixel(x + c, y, intensity)) {
-        drawPixel(x + c, y, 1, true);
-      }
-    }
-
-    y++;
-  }
-#endif
 }
 
 // Custom drawBitmap method with scale support, mask, zindex and pattern filling
