@@ -11,10 +11,10 @@
 
 // SNES Controller
 // uncomment following line to enable snes controller support
-// #define SNES_CONTROLLER
-constexpr uint8_t DATA_CLOCK   = 11;
-constexpr uint8_t DATA_LATCH   = 12;
-constexpr uint8_t DATA_SERIAL  = 13;
+ #define SNES_CONTROLLER
+constexpr uint8_t DATA_CLOCK   = 2;
+constexpr uint8_t DATA_LATCH   = 3;
+constexpr uint8_t DATA_SERIAL  = 4;
 
 // Sound
 constexpr uint8_t SOUND_PIN   = 9; // do not change, belongs to used timer
@@ -77,5 +77,13 @@ constexpr uint8_t SCREEN_HEIGHT    =  64;
 constexpr uint8_t HALF_WIDTH       =  SCREEN_WIDTH/2;
 constexpr uint8_t RENDER_HEIGHT    =  56;         // raycaster working height (the rest is for the hud)
 constexpr uint8_t HALF_HEIGHT      =  SCREEN_HEIGHT/2;
+constexpr uint8_t dcPin = 5;
+constexpr uint8_t csPin = 10;
+constexpr uint8_t I2C_ADDR = ((SCREEN_HEIGHT == 32) ? 0x3C : 0x3D); // (0x3C for 32-pixel-tall displays, 0x3D for all others).
+enum DisplayMode {
+  I2C_MODE,
+  SPI_MODE
+};
+constexpr DisplayMode MODE = SPI_MODE;
 
 #endif
