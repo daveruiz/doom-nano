@@ -13,16 +13,16 @@ const static uint8_t PROGMEM bit_mask[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
 
 void setupDisplay();
 void fps();
-bool getGradientPixel(uint8_t x, uint8_t y, uint8_t i);
+bool getGradientPixel(uint8_t x, uint8_t y, uint8_t i) __attribute__ ((optimize(3)));
 void fadeScreen(uint8_t intensity, bool color);
-void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity);
-void drawSprite(int8_t x, int8_t y, const uint8_t bitmap[], const uint8_t mask[], int16_t w, int16_t h, uint8_t sprite, double distance);
-void drawChar(int8_t x, int8_t y, char ch);
-void drawText(int8_t x, int8_t y, char *txt, uint8_t space = 1);
-void drawText(int8_t x, int8_t y, const __FlashStringHelper txt, uint8_t space = 1);
+void drawVLine(uint8_t x, uint8_t start_y, uint8_t end_y, uint8_t intensity) __attribute__ ((optimize(3)));
+void drawSprite(uint8_t x, uint8_t y, const uint8_t bitmap[], const uint8_t mask[], int16_t w, int16_t h, uint8_t sprite, double distance) __attribute__ ((optimize(3)));
+void drawChar(uint8_t x, uint8_t y, char ch) __attribute__ ((optimize(3)));
+void drawText(uint8_t x, uint8_t y, char *txt, uint8_t space = 1) __attribute__ ((optimize(3)));
+void drawText(uint8_t x, uint8_t y, const __FlashStringHelper txt, uint8_t space = 1) __attribute__ ((optimize(3)));
 
 // Initialize screen. Following line is for OLED 128x64 connected by I2C
-Adafruit_SSD1306<SCREEN_WIDTH, SCREEN_HEIGHT> display;
+Adafruit_SSD1306<SCREEN_WIDTH, SCREEN_HEIGHT, MODE> display;
 
 // FPS control
 double delta = 1;
@@ -35,7 +35,7 @@ uint8_t zbuffer[ZBUFFER_SIZE];
 void setupDisplay() {
   // Setup display
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Fixed from 0x3D
+  if (!display.begin(SSD1306_SWITCHCAPVCC)) {
     Serial.println(F("SSD1306 allocation failed"));
     while (1); // Don't proceed, loop forever
   }
@@ -80,20 +80,16 @@ void fadeScreen(uint8_t intensity, bool color = 0) {
 // For raycaster only
 // Custom draw Vertical lines that fills with a pattern to simulate
 // different brightness. Affected by RES_DIVIDER
-void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity) {
-  int8_t y;
-  int8_t lower_y = max(min(start_y, end_y), 0);
-  int8_t higher_y = min(max(start_y, end_y), RENDER_HEIGHT - 1);
-  uint8_t c;
+void drawVLine(uint8_t x, uint8_t start_y, uint8_t end_y, uint8_t intensity) {
+  uint8_t higher_y = min(end_y, RENDER_HEIGHT - 1);
 
-  uint8_t bp;
-  uint8_t b;
-  for (c = 0; c < RES_DIVIDER; c++) {
-    y = lower_y;
-    b = 0;
+  for (uint8_t c = 0; c < RES_DIVIDER; ++c) {
+    uint8_t y = start_y;
+    uint8_t b = 0;
+    uint8_t bp;
     while (y <= higher_y) {
-      bp = y % 8;
-      b = b | getGradientPixel(x + c, y, intensity) << bp;
+      bp = y & 0x07;
+      b |= getGradientPixel(x + c, y, intensity) << bp;
 
       if (bp == 7) {
         // write the whole byte
@@ -101,7 +97,7 @@ void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity) {
         b = 0;
       }
 
-      y++;
+      ++y;
     }
 
     // draw last byte
@@ -113,7 +109,7 @@ void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity) {
 
 // Custom drawBitmap method with scale support, mask, zindex and pattern filling
 void drawSprite(
-  int8_t x, int8_t y,
+  uint8_t x, uint8_t y,
   const uint8_t bitmap[], const uint8_t mask[],
   int16_t w, int16_t h,
   uint8_t sprite,
@@ -168,7 +164,7 @@ void drawSprite(
 // Draw a single character.
 // Made for a custom font with some useful sprites. Char size 4 x 6
 // Uses less memory than display.print()
-void drawChar(int8_t x, int8_t y, char ch) {
+void drawChar(uint8_t x, uint8_t y, char ch) {
   uint8_t c = 0;
   uint8_t n;
   uint8_t bOffset;
@@ -188,22 +184,15 @@ void drawChar(int8_t x, int8_t y, char ch) {
 }
 
 // Draw a string
-void drawText(int8_t x, int8_t y, char *txt, uint8_t space) {
-  uint8_t pos = x;
-  uint8_t i = 0;
-  char ch;
-  while ((ch = txt[i]) != '\0') {
-    drawChar(pos, y, ch);
-    i++;
-    pos += CHAR_WIDTH + space;
-
-    // shortcut on end of screen
-    if (pos > SCREEN_WIDTH) return;
-  }
+void drawText(uint8_t x, uint8_t y, char *txt, uint8_t space) {
+  do {
+    drawChar(x, y, *txt++);
+    x += CHAR_WIDTH + space;
+  } while(*txt);
 }
 
 // Draw a F() string
-void drawText(int8_t x, int8_t y, const __FlashStringHelper *txt_p, uint8_t space = 1) {
+void drawText(uint8_t x, uint8_t y, const __FlashStringHelper *txt_p, uint8_t space = 1) {
   uint8_t pos = x;
   uint8_t i = 0;
   char ch;

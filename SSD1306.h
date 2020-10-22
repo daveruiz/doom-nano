@@ -25,6 +25,7 @@
 #define _Adafruit_SSD1306_H_
 
 #include "TWI_Master.h"
+#include <SPI.h>
 #include "string.h"
 #include "constants.h"
 
@@ -81,16 +82,15 @@
     @brief  Class that stores state and functions for interacting with
             SSD1306 OLED displays.
 */
-template <uint8_t WIDTH, uint8_t HEIGHT>
+template <uint8_t WIDTH, uint8_t HEIGHT, DisplayMode DISPLAY_MODE>
 class Adafruit_SSD1306 {
  public:
   Adafruit_SSD1306() = default;
 
   ~Adafruit_SSD1306(void) = default;
 
-  bool      begin(uint8_t switchvcc=SSD1306_SWITCHCAPVCC,
-                 uint8_t i2caddr=0);
-  void         display(void);
+  bool begin(uint8_t switchvcc=SSD1306_SWITCHCAPVCC);
+  void display(void) __attribute__ ((optimize(3)));
 
   /*!
     @brief  Clear contents of display buffer (set all pixels to off).
@@ -127,22 +127,20 @@ class Adafruit_SSD1306 {
   */
   uint8_t     *getBuffer(void) {  return buffer; }
   void clearRect(uint8_t, uint8_t, uint8_t, uint8_t);
-  void drawBitmap(int16_t x, int16_t y, const uint8_t bitmap[], int16_t w, int16_t h, uint16_t color);
-
+  void drawBitmap(uint8_t x, uint8_t y, const uint8_t bitmap[], uint8_t w, uint8_t h, uint8_t color)  __attribute__ ((optimize(3)));
   // Faster way to render vertical bits
   void drawByte(uint8_t x, uint8_t y, uint8_t b) {
     buffer[(y / 8)*SCREEN_WIDTH + x] = b;
   }
  private:
-  void         drawFastVLineInternal(int16_t x, int16_t y, int16_t h,
-                 uint16_t color);
+  void         drawFastVLineInternal(uint8_t x, uint8_t y, uint8_t h) __attribute__ ((optimize(3)));
   void         ssd1306_command1(uint8_t c);
   void         ssd1306_commandList(const uint8_t *c, uint8_t n);
 
   uint8_t     buffer[WIDTH * ((HEIGHT + 7) / 8)];
-  int8_t       i2caddr, vccstate, page_end;
+  int8_t      vccstate;
 };
 
-template class Adafruit_SSD1306<SCREEN_WIDTH, SCREEN_HEIGHT>;
+template class Adafruit_SSD1306<SCREEN_WIDTH, SCREEN_HEIGHT, MODE>;
 
 #endif // _Adafruit_SSD1306_H_
