@@ -225,28 +225,7 @@ void Adafruit_SSD1306<WIDTH, HEIGHT>::drawPixel(int16_t x, int16_t y, uint16_t c
      case SSD1306_INVERSE: buffer[x + (y/8)*WIDTH] ^=  (1 << (y&7)); break;
     }
   }
-}
 
-/*!
-    @brief  Draw a vertical line. This is also invoked by the Adafruit_GFX
-            library in generating many higher-level graphics primitives.
-    @param  x
-            Column of display -- 0 at left to (screen width -1) at right.
-    @param  y
-            Topmost row -- 0 at top to (screen height - 1) at bottom.
-    @param  h
-            Height of line, in pixels.
-    @param  color
-            Line color, one of: SSD1306_BLACK, SSD1306_WHITE or SSD1306_INVERT.
-    @return None (void).
-    @note   Changes buffer contents only, no immediate effect on display.
-            Follow up with a call to display(), or with other graphics
-            commands as needed by one's own application.
-*/
-template <uint8_t WIDTH, uint8_t HEIGHT>
-void Adafruit_SSD1306<WIDTH, HEIGHT>::drawFastVLine(
-  int16_t x, int16_t y, int16_t h, uint16_t color) {
-  drawFastVLineInternal(x, y, h, color);
 }
 
 template <uint8_t WIDTH, uint8_t HEIGHT>
@@ -354,26 +333,6 @@ void Adafruit_SSD1306<WIDTH, HEIGHT>::drawBitmap(int16_t x, int16_t y,
             if(byte & 0x80) drawPixel(x+i, y, color);
         }
     }
-}
-
-/*!
-    @brief  Return color of a single pixel in display buffer.
-    @param  x
-            Column of display -- 0 at left to (screen width - 1) at right.
-    @param  y
-            Row of display -- 0 at top to (screen height -1) at bottom.
-    @return true if pixel is set (usually SSD1306_WHITE, unless display invert mode
-            is enabled), false if clear (SSD1306_BLACK).
-    @note   Reads from buffer contents; may not reflect current contents of
-            screen if display() has not been called.
-*/
-template <uint8_t WIDTH, uint8_t HEIGHT>
-bool Adafruit_SSD1306<WIDTH, HEIGHT>::getPixel(int16_t x, int16_t y) {
-  if((x >= 0) && (x < WIDTH) && (y >= 0) && (y < HEIGHT)) {
-    // Pixel is in-bounds. Rotate coordinates if needed.
-    return (buffer[x + (y / 8) * WIDTH] & (1 << (y & 7)));
-  }
-  return false; // Pixel out of bounds
 }
 
 // REFRESH DISPLAY ---------------------------------------------------------

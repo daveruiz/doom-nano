@@ -91,9 +91,6 @@ class Adafruit_SSD1306 {
   bool      begin(uint8_t switchvcc=SSD1306_SWITCHCAPVCC,
                  uint8_t i2caddr=0);
   void         display(void);
-  void         drawPixel(int16_t x, int16_t y, uint16_t color);
-  void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
-  bool      getPixel(int16_t x, int16_t y);
 
   /*!
     @brief  Clear contents of display buffer (set all pixels to off).
@@ -103,6 +100,10 @@ class Adafruit_SSD1306 {
             commands as needed by one's own application.
   */
   void clearDisplay(void) { memset(buffer, 0, WIDTH * ((HEIGHT + 7) / 8)); }
+
+  // Faster drawPixel than display.drawPixel.
+  // Avoids some checks to make it faster.
+  void drawPixel(uint8_t x, uint8_t y, bool color, bool raycasterViewport = false);
 
   /*!
     @brief  Enable or disable display invert mode (white-on-black vs
@@ -128,6 +129,10 @@ class Adafruit_SSD1306 {
   void clearRect(uint8_t, uint8_t, uint8_t, uint8_t);
   void drawBitmap(int16_t x, int16_t y, const uint8_t bitmap[], int16_t w, int16_t h, uint16_t color);
 
+  // Faster way to render vertical bits
+  void drawByte(uint8_t x, uint8_t y, uint8_t b) {
+    buffer[(y / 8)*SCREEN_WIDTH + x] = b;
+  }
  private:
   void         drawFastVLineInternal(int16_t x, int16_t y, int16_t h,
                  uint16_t color);

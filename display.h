@@ -15,9 +15,6 @@ void setupDisplay();
 void fps();
 bool getGradientPixel(uint8_t x, uint8_t y, uint8_t i);
 void fadeScreen(uint8_t intensity, bool color);
-void drawByte(uint8_t x, uint8_t y, uint8_t b);
-uint8_t getByte(uint8_t x, uint8_t y);
-void drawPixel(int8_t x, int8_t y, bool color, bool raycasterViewport);
 void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity);
 void drawSprite(int8_t x, int8_t y, const uint8_t bitmap[], const uint8_t mask[], int16_t w, int16_t h, uint8_t sprite, double distance);
 void drawChar(int8_t x, int8_t y, char ch);
@@ -31,9 +28,6 @@ Adafruit_SSD1306<SCREEN_WIDTH, SCREEN_HEIGHT> display;
 double delta = 1;
 uint32_t lastFrameTime = 0;
 
-// Optimizations for SSD1306 handles buffer directly
-uint8_t *display_buf;
-
 // We don't handle more than MAX_RENDER_DEPTH depth, so we can safety store
 // z values in a byte with 1 decimal and save some memory,
 uint8_t zbuffer[ZBUFFER_SIZE];
@@ -45,8 +39,6 @@ void setupDisplay() {
     Serial.println(F("SSD1306 allocation failed"));
     while (1); // Don't proceed, loop forever
   }
-
-  display_buf = display.getBuffer();
 
   // initialize z buffer
   memset(zbuffer, 0xFF, ZBUFFER_SIZE);
@@ -62,11 +54,6 @@ void fps() {
 
 double getActualFps() {
   return 1000 / (FRAME_TIME * delta);
-}
-
-// Faster way to render vertical bits
-void drawByte(uint8_t x, uint8_t y, uint8_t b) {
-  display_buf[(y / 8)*SCREEN_WIDTH + x] = b;
 }
 
 boolean getGradientPixel(uint8_t x, uint8_t y, uint8_t i) {
@@ -85,25 +72,8 @@ void fadeScreen(uint8_t intensity, bool color = 0) {
   for (uint8_t x = 0; x < SCREEN_WIDTH; x++) {
     for (uint8_t y = 0; y < SCREEN_HEIGHT; y++) {
       if (getGradientPixel(x, y, intensity)) 
-        drawPixel(x, y, color, false);
+        display.drawPixel(x, y, color, false);
     }
-  }
-}
-
-// Faster drawPixel than display.drawPixel.
-// Avoids some checks to make it faster.
-void drawPixel(int8_t x, int8_t y, bool color, bool raycasterViewport = false) {
-  // prevent write out of screen buffer
-  if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= (raycasterViewport ? RENDER_HEIGHT : SCREEN_HEIGHT)) {
-    return;
-  }
-
-  if (color) {
-    // white
-    display_buf[x + (y / 8)*SCREEN_WIDTH] |= (1 << (y & 7));
-  } else {
-    // black
-    display_buf[x + (y / 8)*SCREEN_WIDTH] &= ~(1 << (y & 7));
   }
 }
 
@@ -127,7 +97,7 @@ void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity) {
 
       if (bp == 7) {
         // write the whole byte
-        drawByte(x + c, y, b);
+        display.drawByte(x + c, y, b);
         b = 0;
       }
 
@@ -136,7 +106,7 @@ void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity) {
 
     // draw last byte
     if (bp != 7) {
-      drawByte(x + c, y - 1, b);
+      display.drawByte(x + c, y - 1, b);
     }
   }
 }
@@ -187,7 +157,7 @@ void drawSprite(
         pixel = read_bit(pgm_read_byte(bitmap + byte_offset), sx % 8);
         for (uint8_t ox = 0; ox < pixel_size; ox++) {
           for (uint8_t oy = 0; oy < pixel_size; oy++) {
-            drawPixel(x + tx + ox, y + ty + oy, pixel, true);
+            display.drawPixel(x + tx + ox, y + ty + oy, pixel, true);
           }
         }
       }
@@ -213,7 +183,7 @@ void drawChar(int8_t x, int8_t y, char ch) {
     b = pgm_read_byte(bmp_font + (line * bmp_font_width + bOffset));
     for (n = 0; n < CHAR_WIDTH; n++)
       if (read_bit(b, (c % 2 == 0 ? 0 : 4) + n))
-        drawPixel(x + n, y + line, 1, false);
+        display.drawPixel(x + n, y + line, 1, false);
   }
 }
 
