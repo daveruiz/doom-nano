@@ -63,21 +63,39 @@ constexpr uint16_t WIRE_MAX = 342;
 // Because command calls are often grouped, SPI transaction and selection
 // must be started/ended in calling function for efficiency.
 // This is a private function, not exposed (see ssd1306_command() instead).
-template <uint8_t WIDTH, uint8_t HEIGHT>
-void Adafruit_SSD1306<WIDTH, HEIGHT>::ssd1306_command1(uint8_t c) {
-  uint8_t cmd = 0x00; // Co = 0, D/C = 0
-  TWI_Start_Transceiver_With_Data(cmd, &c, 1);
+template <uint8_t WIDTH, uint8_t HEIGHT, DisplayMode DISPLAY_MODE>
+void Adafruit_SSD1306<WIDTH, HEIGHT, DISPLAY_MODE>::ssd1306_command1(uint8_t c) {
+  if(DISPLAY_MODE == I2C_MODE) {
+    uint8_t cmd = 0x00; // Co = 0, D/C = 0
+    TWI_Start_Transceiver_With_Data(cmd, &c, 1);
+  } else {
+    digitalWrite(dcPin, LOW);
+    digitalWrite(csPin, LOW);
+    SPDR = c;
+    while (!(SPSR & _BV(SPIF))) ; // wait
+    digitalWrite(csPin, HIGH);
+  }
 }
 
 // Issue list of commands to SSD1306, same rules as above re: transactions.
 // This is a private function, not exposed.
-template <uint8_t WIDTH, uint8_t HEIGHT>
-void Adafruit_SSD1306<WIDTH, HEIGHT>::ssd1306_commandList(const uint8_t *c, uint8_t n) {
-  uint8_t cmd = 0x00; // Co = 0, D/C = 0
-  uint8_t tmp[n];
+template <uint8_t WIDTH, uint8_t HEIGHT, DisplayMode DISPLAY_MODE>
+void Adafruit_SSD1306<WIDTH, HEIGHT, DISPLAY_MODE>::ssd1306_commandList(const uint8_t *c, uint8_t n) {
+  if(DISPLAY_MODE == I2C_MODE) {
+    uint8_t cmd = 0x00; // Co = 0, D/C = 0
+    uint8_t tmp[n];
 
-  uint8_t * tmpptr = static_cast<uint8_t *>(memcpy_P(tmp, c, n));
-  TWI_Start_Transceiver_With_Data(cmd, tmpptr, n);
+    uint8_t * tmpptr = static_cast<uint8_t *>(memcpy_P(tmp, c, n));
+    TWI_Start_Transceiver_With_Data(cmd, tmpptr, n);
+  } else {
+    digitalWrite(dcPin, LOW);
+    digitalWrite(csPin, LOW);
+    while(n--) {
+      SPDR = pgm_read_byte(c++);
+      while (!(SPSR & _BV(SPIF))) ; // wait
+    }
+    digitalWrite(csPin, HIGH);
+  }
 }
 
 // ALLOCATE & INIT DISPLAY -------------------------------------------------
@@ -117,22 +135,27 @@ void Adafruit_SSD1306<WIDTH, HEIGHT>::ssd1306_commandList(const uint8_t *c, uint
             proceeding.
     @note   MUST call this function before any drawing or updates!
 */
-template <uint8_t WIDTH, uint8_t HEIGHT>
-bool Adafruit_SSD1306<WIDTH, HEIGHT>::begin(uint8_t vcs, uint8_t addr) {
+template <uint8_t WIDTH, uint8_t HEIGHT, DisplayMode DISPLAY_MODE>
+bool Adafruit_SSD1306<WIDTH, HEIGHT, DISPLAY_MODE>::begin(uint8_t vcs) {
 
   clearDisplay();
 
   vccstate = vcs;
 
-  // Setup pin directions
-    // If I2C address is unspecified, use default
-    // (0x3C for 32-pixel-tall displays, 0x3D for all others).
-    i2caddr = addr ? addr : ((HEIGHT == 32) ? 0x3C : 0x3D);
-    // TwoWire begin() function might be already performed by the calling
-    // function if it has unusual circumstances (e.g. TWI variants that
-    // can accept different SDA/SCL pins, or if two SSD1306 instances
-    // with different addresses -- only a single begin() is needed).
-  TWI_Master_Initialise();
+  // TwoWire begin() function might be already performed by the calling
+  // function if it has unusual circumstances (e.g. TWI variants that
+  // can accept different SDA/SCL pins, or if two SSD1306 instances
+  // with different addresses -- only a single begin() is needed).
+  if(DISPLAY_MODE == I2C_MODE) {
+    TWI_Master_Initialise();
+  } else { // SPI
+    SPI.beginTransaction(SPISettings(160000000UL, MSBFIRST, SPI_MODE3));
+    SPI.begin();
+    pinMode(11, OUTPUT); // MOSI and SCLK outputs
+    pinMode(13 , OUTPUT);
+    pinMode(dcPin, OUTPUT); // Set data/command pin as output
+    pinMode(csPin, OUTPUT); // Same for chip select
+  }
 
   // Init sequence
   static const uint8_t PROGMEM init1[] = {
@@ -200,80 +223,28 @@ bool Adafruit_SSD1306<WIDTH, HEIGHT>::begin(uint8_t vcs, uint8_t addr) {
 
 // DRAWING FUNCTIONS -------------------------------------------------------
 
-/*!
-    @brief  Set/clear/invert a single pixel. This is also invoked by the
-            Adafruit_GFX library in generating many higher-level graphics
-            primitives.
-    @param  x
-            Column of display -- 0 at left to (screen width - 1) at right.
-    @param  y
-            Row of display -- 0 at top to (screen height -1) at bottom.
-    @param  color
-            Pixel color, one of: SSD1306_BLACK, SSD1306_WHITE or SSD1306_INVERT.
-    @return None (void).
-    @note   Changes buffer contents only, no immediate effect on display.
-            Follow up with a call to display(), or with other graphics
-            commands as needed by one's own application.
-*/
-template <uint8_t WIDTH, uint8_t HEIGHT>
-void Adafruit_SSD1306<WIDTH, HEIGHT>::drawPixel(int16_t x, int16_t y, uint16_t color) {
-  if((x >= 0) && (x < WIDTH) && (y >= 0) && (y < HEIGHT)) {
-    // Pixel is in-bounds. Rotate coordinates if needed.
-    switch(color) {
-     case SSD1306_WHITE:   buffer[x + (y/8)*WIDTH] |=  (1 << (y&7)); break;
-     case SSD1306_BLACK:   buffer[x + (y/8)*WIDTH] &= ~(1 << (y&7)); break;
-     case SSD1306_INVERSE: buffer[x + (y/8)*WIDTH] ^=  (1 << (y&7)); break;
-    }
+template <uint8_t WIDTH, uint8_t HEIGHT, DisplayMode DISPLAY_MODE>
+void Adafruit_SSD1306<WIDTH, HEIGHT, DISPLAY_MODE>::drawPixel(uint8_t x, uint8_t y, bool color, bool raycasterViewport) {
+  // prevent write out of screen buffer
+  if (x >= SCREEN_WIDTH || y >= (raycasterViewport ? RENDER_HEIGHT : SCREEN_HEIGHT)) {
+    return;
+  }
+
+  if (color) {
+    // white
+    buffer[x + (y / 8)*SCREEN_WIDTH] |= (1 << (y & 7));
+  } else {
+    // black
+    buffer[x + (y / 8)*SCREEN_WIDTH] &= ~(1 << (y & 7));
   }
 }
 
-/*!
-    @brief  Clear contents of display buffer (set all pixels to off).
-    @return None (void).
-    @note   Changes buffer contents only, no immediate effect on display.
-            Follow up with a call to display(), or with other graphics
-            commands as needed by one's own application.
-*/
-template <uint8_t WIDTH, uint8_t HEIGHT>
-void Adafruit_SSD1306<WIDTH, HEIGHT>::clearDisplay(void) {
-  memset(buffer, 0, WIDTH * ((HEIGHT + 7) / 8));
-}
-
-/*!
-    @brief  Draw a vertical line. This is also invoked by the Adafruit_GFX
-            library in generating many higher-level graphics primitives.
-    @param  x
-            Column of display -- 0 at left to (screen width -1) at right.
-    @param  y
-            Topmost row -- 0 at top to (screen height - 1) at bottom.
-    @param  h
-            Height of line, in pixels.
-    @param  color
-            Line color, one of: SSD1306_BLACK, SSD1306_WHITE or SSD1306_INVERT.
-    @return None (void).
-    @note   Changes buffer contents only, no immediate effect on display.
-            Follow up with a call to display(), or with other graphics
-            commands as needed by one's own application.
-*/
-template <uint8_t WIDTH, uint8_t HEIGHT>
-void Adafruit_SSD1306<WIDTH, HEIGHT>::drawFastVLine(
-  int16_t x, int16_t y, int16_t h, uint16_t color) {
-  drawFastVLineInternal(x, y, h, color);
-}
-
-template <uint8_t WIDTH, uint8_t HEIGHT>
-void Adafruit_SSD1306<WIDTH, HEIGHT>::drawFastVLineInternal(
-  int16_t x, int16_t __y, int16_t __h, uint16_t color) {
-
-  if((x >= 0) && (x < WIDTH)) { // X coord in bounds?
-    if(__y < 0) { // Clip top
-      __h += __y;
-      __y = 0;
-    }
+template <uint8_t WIDTH, uint8_t HEIGHT, DisplayMode DISPLAY_MODE>
+void Adafruit_SSD1306<WIDTH, HEIGHT, DISPLAY_MODE>::drawFastVLineInternal(
+  uint8_t x, uint8_t __y, uint8_t __h) {
     if((__y + __h) > HEIGHT) { // Clip bottom
       __h = (HEIGHT - __y);
     }
-    if(__h > 0) { // Proceed only if height is now positive
       // this display doesn't need ints for coordinates,
       // use local byte registers for faster juggling
       uint8_t  y = __y, h = __h;
@@ -293,11 +264,8 @@ void Adafruit_SSD1306<WIDTH, HEIGHT>::drawFastVLineInternal(
         // adjust the mask if we're not going to reach the end of this byte
         if(h < mod) mask &= (0XFF >> (mod - h));
 
-        switch(color) {
-         case SSD1306_WHITE:   *pBuf |=  mask; break;
-         case SSD1306_BLACK:   *pBuf &= ~mask; break;
-         case SSD1306_INVERSE: *pBuf ^=  mask; break;
-        }
+        *pBuf &= ~mask;
+
         pBuf += WIDTH;
       }
 
@@ -305,23 +273,13 @@ void Adafruit_SSD1306<WIDTH, HEIGHT>::drawFastVLineInternal(
         h -= mod;
         // Write solid bytes while we can - effectively 8 rows at a time
         if(h >= 8) {
-          if(color == SSD1306_INVERSE) {
-            // separate copy of the code so we don't impact performance of
-            // black/white write version with an extra comparison per loop
-            do {
-              *pBuf ^= 0xFF;  // Invert byte
-              pBuf  += WIDTH; // Advance pointer 8 rows
-              h     -= 8;     // Subtract 8 rows from height
-            } while(h >= 8);
-          } else {
             // store a local value to work with
-            uint8_t val = (color != SSD1306_BLACK) ? 255 : 0;
+            //uint8_t val = (color != SSD1306_BLACK) ? 255 : 0;
             do {
-              *pBuf = val;    // Set byte
+              *pBuf = 0;    // Set byte
               pBuf += WIDTH;  // Advance pointer 8 rows
               h    -= 8;      // Subtract 8 rows from height
             } while(h >= 8);
-          }
         }
 
         if(h) { // Do the final partial byte, if necessary
@@ -334,68 +292,32 @@ void Adafruit_SSD1306<WIDTH, HEIGHT>::drawFastVLineInternal(
           static const uint8_t PROGMEM postmask[8] =
             { 0x00, 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F };
           uint8_t mask = pgm_read_byte(&postmask[mod]);
-          switch(color) {
-           case SSD1306_WHITE:   *pBuf |=  mask; break;
-           case SSD1306_BLACK:   *pBuf &= ~mask; break;
-           case SSD1306_INVERSE: *pBuf ^=  mask; break;
-          }
+           *pBuf &= ~mask; 
         }
       }
-    } // endif positive height
-  } // endif x in bounds
 }
 
-template <uint8_t WIDTH, uint8_t HEIGHT>
-void Adafruit_SSD1306<WIDTH, HEIGHT>::clearRect(uint8_t x, uint8_t y, uint8_t w , uint8_t h) {
-  for (int16_t i=x; i<x+w; i++) {
-    drawFastVLineInternal(i, y, h, 0);
+template <uint8_t WIDTH, uint8_t HEIGHT, DisplayMode DISPLAY_MODE>
+void Adafruit_SSD1306<WIDTH, HEIGHT, DISPLAY_MODE>::clearRect(uint8_t x, uint8_t y, uint8_t w , uint8_t h) {
+  for (uint8_t i=x; i<x+w; i++) {
+    drawFastVLineInternal(i, y, h);
   }
 }
 
-template <uint8_t WIDTH, uint8_t HEIGHT>
-void Adafruit_SSD1306<WIDTH, HEIGHT>::drawBitmap(int16_t x, int16_t y,
-  const uint8_t bitmap[], int16_t w, int16_t h, uint16_t color) {
+template <uint8_t WIDTH, uint8_t HEIGHT, DisplayMode DISPLAY_MODE>
+void Adafruit_SSD1306<WIDTH, HEIGHT, DISPLAY_MODE>::drawBitmap(uint8_t x, uint8_t y,
+  const uint8_t bitmap[], uint8_t w, uint8_t h, uint8_t color) {
 
-    int16_t byteWidth = (w + 7) / 8; // Bitmap scanline pad = whole byte
+    uint8_t byteWidth = (w + 7) / 8; // Bitmap scanline pad = whole byte
     uint8_t byte = 0;
 
-    for(int16_t j=0; j<h; j++, y++) {
-        for(int16_t i=0; i<w; i++) {
+    for(uint8_t j=0; j<h; j++, y++) {
+        for(uint8_t i=0; i<w; i++) {
             if(i & 7) byte <<= 1;
             else      byte   = pgm_read_byte(&bitmap[j * byteWidth + i / 8]);
             if(byte & 0x80) drawPixel(x+i, y, color);
         }
     }
-}
-
-/*!
-    @brief  Return color of a single pixel in display buffer.
-    @param  x
-            Column of display -- 0 at left to (screen width - 1) at right.
-    @param  y
-            Row of display -- 0 at top to (screen height -1) at bottom.
-    @return true if pixel is set (usually SSD1306_WHITE, unless display invert mode
-            is enabled), false if clear (SSD1306_BLACK).
-    @note   Reads from buffer contents; may not reflect current contents of
-            screen if display() has not been called.
-*/
-template <uint8_t WIDTH, uint8_t HEIGHT>
-bool Adafruit_SSD1306<WIDTH, HEIGHT>::getPixel(int16_t x, int16_t y) {
-  if((x >= 0) && (x < WIDTH) && (y >= 0) && (y < HEIGHT)) {
-    // Pixel is in-bounds. Rotate coordinates if needed.
-    return (buffer[x + (y / 8) * WIDTH] & (1 << (y & 7)));
-  }
-  return false; // Pixel out of bounds
-}
-
-/*!
-    @brief  Get base address of display buffer for direct reading or writing.
-    @return Pointer to an unsigned 8-bit array, column-major, columns padded
-            to full byte boundary if needed.
-*/
-template <uint8_t WIDTH, uint8_t HEIGHT>
-uint8_t *Adafruit_SSD1306<WIDTH, HEIGHT>::getBuffer(void) {
-  return buffer;
 }
 
 // REFRESH DISPLAY ---------------------------------------------------------
@@ -407,8 +329,8 @@ uint8_t *Adafruit_SSD1306<WIDTH, HEIGHT>::getBuffer(void) {
             called. Call after each graphics command, or after a whole set
             of graphics commands, as best needed by one's own application.
 */
-template <uint8_t WIDTH, uint8_t HEIGHT>
-void Adafruit_SSD1306<WIDTH, HEIGHT>::display(void) {
+template <uint8_t WIDTH, uint8_t HEIGHT, DisplayMode DISPLAY_MODE>
+void Adafruit_SSD1306<WIDTH, HEIGHT, DISPLAY_MODE>::display(void) {
   static const uint8_t PROGMEM dlist1[] = {
     SSD1306_PAGEADDR,
     0,                         // Page start address
@@ -420,33 +342,23 @@ void Adafruit_SSD1306<WIDTH, HEIGHT>::display(void) {
 
   uint16_t count = WIDTH * ((HEIGHT + 7) / 8);
   uint8_t *ptr   = buffer;
-  uint8_t cmd = 0x40;
-  while(count >= (WIRE_MAX)){
-    TWI_Start_Transceiver_With_Data(cmd, ptr, WIRE_MAX);
-    count -= (WIRE_MAX);
-    ptr += (WIRE_MAX);
+  if(DISPLAY_MODE == I2C_MODE) {
+    uint8_t cmd = 0x40;
+    while(count >= (WIRE_MAX)){
+      TWI_Start_Transceiver_With_Data(cmd, ptr, WIRE_MAX);
+      count -= (WIRE_MAX);
+      ptr += (WIRE_MAX);
+    }
+    if(count > 0) {
+      TWI_Start_Transceiver_With_Data(cmd, ptr, count);
+    }
+  } else {
+    digitalWrite(dcPin, HIGH);
+    digitalWrite(csPin, LOW);
+    while(count--) {
+      SPDR = *ptr++;
+      while (!(SPSR & _BV(SPIF))) ; // wait
+    }
+    digitalWrite(csPin, HIGH);
   }
-  if(count > 0) {
-    TWI_Start_Transceiver_With_Data(cmd, ptr, count);
-  }
-}
-
-// OTHER HARDWARE SETTINGS -------------------------------------------------
-
-/*!
-    @brief  Enable or disable display invert mode (white-on-black vs
-            black-on-white).
-    @param  i
-            If true, switch to invert mode (black-on-white), else normal
-            mode (white-on-black).
-    @return None (void).
-    @note   This has an immediate effect on the display, no need to call the
-            display() function -- buffer contents are not changed, rather a
-            different pixel mode of the display hardware is used. When
-            enabled, drawing SSD1306_BLACK (value 0) pixels will actually draw white,
-            SSD1306_WHITE (value 1) will draw black.
-*/
-template <uint8_t WIDTH, uint8_t HEIGHT>
-void Adafruit_SSD1306<WIDTH, HEIGHT>::invertDisplay(bool i) {
-  ssd1306_command1(i ? SSD1306_INVERTDISPLAY : SSD1306_NORMALDISPLAY);
 }

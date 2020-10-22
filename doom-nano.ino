@@ -701,7 +701,7 @@ void loopGamePlay() {
     fps();
 
     // Clear only the 3d view
-    memset(display_buf, 0, SCREEN_WIDTH * (RENDER_HEIGHT / 8));
+    memset(display.getBuffer(), 0, SCREEN_WIDTH * (RENDER_HEIGHT / 8));
 
     #ifdef SNES_CONTROLLER
     getControllerData();
