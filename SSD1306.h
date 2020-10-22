@@ -91,12 +91,40 @@ class Adafruit_SSD1306 {
   bool      begin(uint8_t switchvcc=SSD1306_SWITCHCAPVCC,
                  uint8_t i2caddr=0);
   void         display(void);
-  void         clearDisplay(void);
-  void         invertDisplay(bool i);
   void         drawPixel(int16_t x, int16_t y, uint16_t color);
   void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
   bool      getPixel(int16_t x, int16_t y);
-  uint8_t     *getBuffer(void);
+
+  /*!
+    @brief  Clear contents of display buffer (set all pixels to off).
+    @return None (void).
+    @note   Changes buffer contents only, no immediate effect on display.
+            Follow up with a call to display(), or with other graphics
+            commands as needed by one's own application.
+  */
+  void clearDisplay(void) { memset(buffer, 0, WIDTH * ((HEIGHT + 7) / 8)); }
+
+  /*!
+    @brief  Enable or disable display invert mode (white-on-black vs
+            black-on-white).
+    @param  i
+            If true, switch to invert mode (black-on-white), else normal
+            mode (white-on-black).
+    @return None (void).
+    @note   This has an immediate effect on the display, no need to call the
+            display() function -- buffer contents are not changed, rather a
+            different pixel mode of the display hardware is used. When
+            enabled, drawing SSD1306_BLACK (value 0) pixels will actually draw white,
+            SSD1306_WHITE (value 1) will draw black.
+  */
+  void         invertDisplay(bool i) { ssd1306_command1(i ? SSD1306_INVERTDISPLAY : SSD1306_NORMALDISPLAY); }
+
+  /*!
+    @brief  Get base address of display buffer for direct reading or writing.
+    @return Pointer to an unsigned 8-bit array, column-major, columns padded
+            to full byte boundary if needed.
+  */
+  uint8_t     *getBuffer(void) {  return buffer; }
   void clearRect(uint8_t, uint8_t, uint8_t, uint8_t);
   void drawBitmap(int16_t x, int16_t y, const uint8_t bitmap[], int16_t w, int16_t h, uint16_t color);
 

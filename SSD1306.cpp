@@ -228,18 +228,6 @@ void Adafruit_SSD1306<WIDTH, HEIGHT>::drawPixel(int16_t x, int16_t y, uint16_t c
 }
 
 /*!
-    @brief  Clear contents of display buffer (set all pixels to off).
-    @return None (void).
-    @note   Changes buffer contents only, no immediate effect on display.
-            Follow up with a call to display(), or with other graphics
-            commands as needed by one's own application.
-*/
-template <uint8_t WIDTH, uint8_t HEIGHT>
-void Adafruit_SSD1306<WIDTH, HEIGHT>::clearDisplay(void) {
-  memset(buffer, 0, WIDTH * ((HEIGHT + 7) / 8));
-}
-
-/*!
     @brief  Draw a vertical line. This is also invoked by the Adafruit_GFX
             library in generating many higher-level graphics primitives.
     @param  x
@@ -388,16 +376,6 @@ bool Adafruit_SSD1306<WIDTH, HEIGHT>::getPixel(int16_t x, int16_t y) {
   return false; // Pixel out of bounds
 }
 
-/*!
-    @brief  Get base address of display buffer for direct reading or writing.
-    @return Pointer to an unsigned 8-bit array, column-major, columns padded
-            to full byte boundary if needed.
-*/
-template <uint8_t WIDTH, uint8_t HEIGHT>
-uint8_t *Adafruit_SSD1306<WIDTH, HEIGHT>::getBuffer(void) {
-  return buffer;
-}
-
 // REFRESH DISPLAY ---------------------------------------------------------
 
 /*!
@@ -429,24 +407,4 @@ void Adafruit_SSD1306<WIDTH, HEIGHT>::display(void) {
   if(count > 0) {
     TWI_Start_Transceiver_With_Data(cmd, ptr, count);
   }
-}
-
-// OTHER HARDWARE SETTINGS -------------------------------------------------
-
-/*!
-    @brief  Enable or disable display invert mode (white-on-black vs
-            black-on-white).
-    @param  i
-            If true, switch to invert mode (black-on-white), else normal
-            mode (white-on-black).
-    @return None (void).
-    @note   This has an immediate effect on the display, no need to call the
-            display() function -- buffer contents are not changed, rather a
-            different pixel mode of the display hardware is used. When
-            enabled, drawing SSD1306_BLACK (value 0) pixels will actually draw white,
-            SSD1306_WHITE (value 1) will draw black.
-*/
-template <uint8_t WIDTH, uint8_t HEIGHT>
-void Adafruit_SSD1306<WIDTH, HEIGHT>::invertDisplay(bool i) {
-  ssd1306_command1(i ? SSD1306_INVERTDISPLAY : SSD1306_NORMALDISPLAY);
 }
