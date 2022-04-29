@@ -15,10 +15,11 @@ To be clear. **This is not an actual Doom game**, just picked some sprites from 
 
 Hardware I used:
 - A protoboard
-- An Arduino nano V3 (ATmega328P)
+- An Arduino Uno/Nano (ATmega328P)
 - An OLED Display (i2c 128x64)
 - 4 buttons
-- 4 10k ohms resistors (Optional. You can use internal pull-up resistor by uncommenting the `#define USE_INPUT_PULLUPS` from constants.h file)
+- ~~4 10k ohms resistors~~. Not needed anymore, check out the wiring diagram from below.
+- Buzzer (Optional)
 
 Resources:
 - Sprites from https://www.spriters-resource.com
@@ -29,7 +30,7 @@ Current status:
 - Sprites are working too, though has some issues hiding them behind walls because memory limitations (the z-buffer precision has been limited a lot to make it smaller).
 - You can move through the map, collide with walls, collect items and interact with enemies. I could also add the jogging effect, like Doom´s one.
 - The enemies AI, despite is very simple, I think works very well and it´s enough for the purpose of the game. Looks very similar to  Imp enemy from original Doom.
-- For the HUD, I realized that the native `print` from Adafruit's library uses too much memory. So I've implemented my custom text rendering methods and a custom font which includes only needed characters and some icons. 
+- For the HUD, I realized that the native `print` from Adafruit's library uses too much memory. So I've implemented my custom text rendering methods and a custom font which includes only needed characters and some icons.
 - ~~Currently I´m using 99% of program memory, which doesn´t let me adds more code. I need to research how to optimize it to make it smaller.~~
 - FPS and memory consumption has been improved using a slim and customized version of the SSD1306 lib from Adafruit. Thanks  [@miracoly](https://github.com/miracoli)
 - Now it has a basic sound support through Pin 9. Thanks again [@miracoly](https://github.com/miracoli)!
@@ -41,7 +42,13 @@ Current status:
 - Add more sprites, decorative elements, etc.
 - Textures? Very performance expensive. I don't think so.
 - Make code looks nicer! Move all to pure c++.
-- ~~Sound/Music? Hmmm I wish so, but...~~ 
+- ~~Sound/Music? Hmmm I wish so, but...~~
+
+Simplified version (using an Arduino UNO, built-in pull-up resistors for buttons and a buzzer):
+![](/images/input-pull-up-version.jpg?raw=true)
+
+Wiring:
+![](/images/wiring.png?raw=true)
 
 More screens (outdated):
 ![](/images/screen-4.jpg?raw=true)
