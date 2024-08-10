@@ -1,5 +1,5 @@
-#ifndef _types_h
-#define _types_h
+#ifndef TYPES_H
+#define TYPES_H
 
 #define UID_null  0
 
@@ -30,5 +30,4 @@ EType uid_get_type(UID uid);
 Coords create_coords(double x, double y);
 uint8_t coords_distance(Coords* a, Coords* b);
 
-#endif
-
+#endif /* TYPES_H */

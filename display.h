@@ -1,8 +1,11 @@
-/* 
+#ifndef DISPLAY_H
+#define DISPLAY_H
+
+/*
 todo: Moving this to CPP looks like it takes more Flash storage. Figure out why.
 */
-#include "SSD1306.h"
 #include "constants.h"
+#include "SSD1306.h"
 
 // Reads a char from an F() string
 #define F_char(ifsh, ch)    pgm_read_byte(reinterpret_cast<PGM_P>(ifsh) + ch)
@@ -274,3 +277,5 @@ void drawText(uint8_t x, uint8_t y, uint8_t num) {
   itoa(num, buf, 10);
   drawText(x, y, buf);
 }
+
+#endif /* DISPLAY_H */

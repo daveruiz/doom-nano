@@ -1,7 +1,8 @@
 #include <stdint.h>
+
+#include "constants.h"
 #include "entities.h"
 #include "types.h"
-#include "constants.h"
 
 Entity create_entity(uint8_t type, uint8_t x,  uint8_t y, uint8_t initialState, uint8_t initialHealth) {
   UID uid = create_uid(type, x, y);

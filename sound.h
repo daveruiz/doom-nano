@@ -7,10 +7,11 @@
    http://www.shikadi.net/moddingwiki/AudioT_Format
 */
 
-#ifndef _sound_h
-#define _sound_h
+#ifndef SOUND_H
+#define SOUND_H
 
 #include <avr/pgmspace.h>
+
 #include "constants.h"
 
 constexpr uint8_t GET_KEY_SND_LEN = 90;
@@ -93,4 +94,4 @@ ISR(TIMER2_COMPA_vect) {
   }
 }
 
-#endif
+#endif /* SOUND_H */

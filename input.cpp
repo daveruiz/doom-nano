@@ -1,5 +1,7 @@
-#include <Arduino.h>
 #include "input.h"
+
+#include <Arduino.h>
+
 #include "constants.h"
 
 #ifdef USE_INPUT_PULLUP

@@ -1,15 +1,15 @@
 #include "constants.h"
-#include "level.h"
-#include "sprites.h"
-#include "input.h"
-#include "entities.h"
-#include "types.h"
 #include "display.h"
+#include "entities.h"
+#include "input.h"
+#include "level.h"
 #include "sound.h"
+#include "sprites.h"
+#include "types.h"
 
 // Useful macros
 #define swap(a, b)            do { typeof(a) temp = a; a = b; b = temp; } while (0)
-#define sign(a, b)            (double) (a > b ? 1 : (b > a ? -1 : 0))
+#define sign(a, b)            (double) ((a) > (b) ? 1 : ((b) > (a) ? -1 : 0))
 
 // general
 uint8_t scene = INTRO;

@@ -1,8 +1,9 @@
-#ifndef _sprites_h
-#define _sprites_h
+#ifndef SPRITES_H
+#define SPRITES_H
+
+#include <stdint.h>
 
 #include <avr/pgmspace.h>
-#include <stdint.h>
 
 #define bmp_font_width   24  // in bytes
 #define bmp_font_height  6
@@ -716,5 +717,4 @@ const static uint8_t gradient[] PROGMEM = {
   0xff, 0xff,
 };
 
-#endif
-
+#endif /* SPRITES_H */

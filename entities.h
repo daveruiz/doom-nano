@@ -1,5 +1,5 @@
-#ifndef _entities_h
-#define _entities_h
+#ifndef ENTITIES_H
+#define ENTITIES_H
 
 #include "types.h"
 
@@ -56,5 +56,4 @@ struct StaticEntity  {
 Entity create_entity(uint8_t type, uint8_t x,  uint8_t y, uint8_t initialState, uint8_t initialHealth);
 StaticEntity create_static_entity(UID uid, uint8_t x,  uint8_t y, bool active);
 
-#endif
-
+#endif /* ENTITIES_H */

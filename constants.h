@@ -1,5 +1,5 @@
-#ifndef _constants_h
-#define _constants_h
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
 
 // Key pinout
 #define USE_INPUT_PULLUP
@@ -78,4 +78,4 @@ constexpr uint8_t HALF_WIDTH       =  SCREEN_WIDTH/2;
 constexpr uint8_t RENDER_HEIGHT    =  56;         // raycaster working height (the rest is for the hud)
 constexpr uint8_t HALF_HEIGHT      =  SCREEN_HEIGHT/2;
 
-#endif
+#endif /* CONSTANTS_H */

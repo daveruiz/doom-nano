@@ -1,5 +1,5 @@
-#ifndef _input_h
-#define _input_h
+#ifndef INPUT_H
+#define INPUT_H
 
 enum BUTTONS {
   B = 0x0001,
@@ -28,4 +28,4 @@ bool input_start();
 void getControllerData(void);
 #endif
 
-#endif
+#endif /* INPUT_H */
