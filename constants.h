@@ -1,13 +1,13 @@
 #ifndef _constants_h
 #define _constants_h
 
-// Key pinout
-#define USE_INPUT_PULLUP
-#define K_LEFT              6
-#define K_RIGHT             7
-#define K_UP                8
-#define K_DOWN              3
+// Analog joystick + independent fire button (Arduino Uno)
+#define JOYSTICK_X_PIN      A0
+#define JOYSTICK_Y_PIN      A1
+#define JOYSTICK_CENTER     512
+#define JOYSTICK_DEADZONE   70
 #define K_FIRE              10
+#define SOUND_ENABLED       0
 
 // SNES Controller
 // uncomment following line to enable snes controller support

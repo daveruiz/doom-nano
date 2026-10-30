@@ -695,6 +695,12 @@ void loopGamePlay() {
   double jogging;
   uint8_t fade = GRADIENT_COUNT - 1;
 
+  // A short press fires on release; holding the button for 1.5 s exits to intro.
+  bool fire_button_was_down = false;
+  bool fire_button_consumed = false;
+  bool fire_pending = false;
+  unsigned long fire_button_down_since = 0;
+
   initializeLevel(sto_level_1);
 
   do {
@@ -707,37 +713,49 @@ void loopGamePlay() {
     getControllerData();
     #endif
 
+    // Interpret the independent fire button. A long press is reserved for exit.
+    bool fire_requested = false;
+    bool fire_down = input_fire();
+    if (fire_down) {
+      if (!fire_button_was_down) {
+        fire_button_was_down = true;
+        fire_button_consumed = false;
+        fire_button_down_since = millis();
+      } else if (!fire_button_consumed &&
+                 millis() - fire_button_down_since >= 1500UL) {
+        fire_button_consumed = true;
+        jumpTo(INTRO);
+      }
+    } else if (fire_button_was_down) {
+      if (!fire_button_consumed) fire_requested = true;
+      fire_button_was_down = false;
+      fire_button_consumed = false;
+    }
+
+    if (fire_requested) fire_pending = true;
+
     // If the player is alive
     if (player.health > 0) {
-      // Player speed
-      if (input_up()) {
-        player.velocity += (MOV_SPEED - player.velocity) * .4;
-        jogging = abs(player.velocity) * MOV_SPEED_INV;
-      } else if (input_down()) {
-        player.velocity += (- MOV_SPEED - player.velocity) * .4;
-        jogging = abs(player.velocity) * MOV_SPEED_INV;
+      // Analog movement: the farther the stick is tilted, the faster the player moves.
+      float movement = input_move();
+      if (movement != 0.0f) {
+        double target_velocity = MOV_SPEED * movement;
+        player.velocity += (target_velocity - player.velocity) * .4;
       } else {
         player.velocity *= .5;
-        jogging = abs(player.velocity) * MOV_SPEED_INV;
       }
+      jogging = abs(player.velocity) * MOV_SPEED_INV;
 
-      // Player rotation
-      if (input_right()) {
-        rot_speed = ROT_SPEED * delta;
+      // Analog rotation. Positive input turns right, negative input turns left.
+      rot_speed = ROT_SPEED * input_turn() * delta;
+      if (rot_speed != 0) {
+        double angle = -rot_speed;
         old_dir_x = player.dir.x;
-        player.dir.x = player.dir.x * cos(-rot_speed) - player.dir.y * sin(-rot_speed);
-        player.dir.y = old_dir_x * sin(-rot_speed) + player.dir.y * cos(-rot_speed);
+        player.dir.x = player.dir.x * cos(angle) - player.dir.y * sin(angle);
+        player.dir.y = old_dir_x * sin(angle) + player.dir.y * cos(angle);
         old_plane_x = player.plane.x;
-        player.plane.x = player.plane.x * cos(-rot_speed) - player.plane.y * sin(-rot_speed);
-        player.plane.y = old_plane_x * sin(-rot_speed) + player.plane.y * cos(-rot_speed);
-      } else if (input_left()) {
-        rot_speed = ROT_SPEED * delta;
-        old_dir_x = player.dir.x;
-        player.dir.x = player.dir.x * cos(rot_speed) - player.dir.y * sin(rot_speed);
-        player.dir.y = old_dir_x * sin(rot_speed) + player.dir.y * cos(rot_speed);
-        old_plane_x = player.plane.x;
-        player.plane.x = player.plane.x * cos(rot_speed) - player.plane.y * sin(rot_speed);
-        player.plane.y = old_plane_x * sin(rot_speed) + player.plane.y * cos(rot_speed);
+        player.plane.x = player.plane.x * cos(angle) - player.plane.y * sin(angle);
+        player.plane.y = old_plane_x * sin(angle) + player.plane.y * cos(angle);
       }
 
       view_height = abs(sin((double) millis() * JOGGING_SPEED)) * 6 * jogging;
@@ -760,19 +778,18 @@ void loopGamePlay() {
       } else if (gun_pos < GUN_TARGET_POS) {
         // Showing up
         gun_pos += 2;
-      } else if (!gun_fired && input_fire()) {
-        // ready to fire and fire pressed
+      } else if (!gun_fired && fire_pending) {
+        // A short button press has been released; fire once when the gun is ready.
         gun_pos = GUN_SHOT_POS;
         gun_fired = true;
+        fire_pending = false;
         fire();
-      } else if (gun_fired && !input_fire()) {
-        // just fired and restored position
+      } else if (gun_fired) {
         gun_fired = false;
       }
     } else {
       // The player is dead
       if (view_height > -10) view_height--;
-      else if (input_fire()) jumpTo(INTRO);
 
       if (gun_pos > 1) gun_pos -= 2;
     }
@@ -824,12 +841,8 @@ void loopGamePlay() {
 
     // Exit routine
     #ifdef SNES_CONTROLLER
-    if (input_start()) {
-    #else
-    if (input_left() && input_right()) {
+    if (input_start()) jumpTo(INTRO);
     #endif
-      jumpTo(INTRO);
-    }
   } while (!exit_scene);
 }
 

@@ -17,10 +17,8 @@ enum BUTTONS {
 };
 
 void input_setup();
-bool input_up();
-bool input_down();
-bool input_left();
-bool input_right();
+float input_move(); // -1.0 = backwards, +1.0 = forwards
+float input_turn(); // -1.0 = left, +1.0 = right
 bool input_fire();
 
 #ifdef SNES_CONTROLLER

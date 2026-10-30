@@ -55,3 +55,18 @@ More screens (outdated):
 ![](/images/screen-5.jpg?raw=true)
 ![](/images/screen-6.jpg?raw=true)
 ![](/images/screen-7.jpg?raw=true)
+
+
+## Arduino Uno joystick adaptation
+
+The `feature/analog-joystick-controls` branch replaces the four movement buttons with an analog joystick:
+
+- Joystick VRx / X axis: A0 (turn left and right progressively).
+- Joystick VRy / Y axis: A1 (move forward and backward progressively).
+- Joystick GND: GND; VCC: 5V for a typical 5V-compatible module.
+- Independent fire button: D10 to GND; the internal pull-up is enabled.
+- Joystick SW: not connected.
+- OLED I2C remains on the board's I2C pins (A4 SDA, A5 SCL on Uno).
+- Sound is disabled in software; no buzzer is required.
+
+The analog axes use a center value of 512 and a dead zone of 70 ADC counts. If the joystick does not rest near 512, adjust `JOYSTICK_CENTER` in `constants.h`. A short D10 press fires on release; holding D10 for 1.5 seconds returns to the intro screen.

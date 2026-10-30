@@ -13,6 +13,8 @@
 #include <avr/pgmspace.h>
 #include "constants.h"
 
+#if SOUND_ENABLED
+
 constexpr uint8_t GET_KEY_SND_LEN = 90;
 constexpr uint8_t SHOOT_SND_LEN = 27;
 constexpr uint8_t shoot_snd[] PROGMEM = { 0x10, 0x10 , 0x10 , 0x6e , 0x2a , 0x20 , 0x28 , 0x28 , 0x9b , 0x28 , 0x20 , 0x20 , 0x21 , 0x57 , 0x20 , 0x20 , 0x20 , 0x67 , 0x20 , 0x20 , 0x29 , 0x20 , 0x73 , 0x20 , 0x20 , 0x20 , 0x89};
@@ -92,5 +94,12 @@ ISR(TIMER2_COMPA_vect) {
     }
   }
 }
+
+#else
+// Sound is disabled: keep call sites intact without configuring timers or pins.
+bool sound = false;
+inline void sound_init() {}
+inline void playSound(const uint8_t*, uint8_t) {}
+#endif
 
 #endif
