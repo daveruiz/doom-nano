@@ -2,12 +2,14 @@
 #define _constants_h
 
 // Key pinout
+// defines new pinouts for arduino so mask is more efficient
 #define USE_INPUT_PULLUP
-#define K_LEFT              6
-#define K_RIGHT             7
-#define K_UP                8
-#define K_DOWN              3
-#define K_FIRE              10
+const uint8_t K_LEFT  = 0b00001000; // PD3, Pin 3
+const uint8_t K_RIGHT = 0b00010000; // PD4, Pin 4
+const uint8_t K_UP    = 0b00100000; // PD5, Pin 5
+const uint8_t K_DOWN  = 0b01000000; // PD6, Pin 6
+const uint8_t K_FIRE  = 0b10000000; // PD7, Pin 7
+const uint8_t mask = 0b11111000;
 
 // SNES Controller
 // uncomment following line to enable snes controller support
