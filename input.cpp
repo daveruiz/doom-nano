@@ -70,31 +70,34 @@ bool input_start() {
 }
 #else
 
+//Saves 356 bytes of flash
 void input_setup() {
-  pinMode(K_LEFT, INPUT_MODE);
-  pinMode(K_RIGHT, INPUT_MODE);
-  pinMode(K_UP, INPUT_MODE);
-  pinMode(K_DOWN, INPUT_MODE);
-  pinMode(K_FIRE, INPUT_MODE);
+  // Configures pins 3, 4, 5, 6, and 7 on Port D as INPUTS
+  DDRD &= ~mask; 
+  
+  // Enables internal pull-up resistors for those same pins
+  PORTD |= mask;
+}
+uint8_t input_read() {
+  return ~(PIND) & mask;
+}
+bool input_left() { 
+  return !((PIND & mask) & K_LEFT); 
 }
 
-bool input_left() {
-  return digitalRead(K_LEFT) == INPUT_STATE;
-};
+bool input_right() { 
+  return !((PIND & mask) & K_RIGHT); 
+}
 
-bool input_right() {
-  return digitalRead(K_RIGHT) == INPUT_STATE;
-};
+bool input_up() { 
+  return !((PIND & mask) & K_UP); 
+}
 
-bool input_up() {
-  return digitalRead(K_UP) == INPUT_STATE;
-};
+bool input_down() { 
+  return !((PIND & mask) & K_DOWN); 
+}
 
-bool input_down() {
-  return digitalRead(K_DOWN) == INPUT_STATE;
-};
-
-bool input_fire() {
-  return digitalRead(K_FIRE) == INPUT_STATE;
-};
+bool input_fire() { 
+  return !((PIND & mask) & K_FIRE); 
+}
 #endif
